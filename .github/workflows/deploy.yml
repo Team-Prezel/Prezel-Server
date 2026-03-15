@@ -37,6 +37,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           script: |
+            sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+            
             sudo docker pull audwns03/handoff
             sudo docker stop handoff || true
             sudo docker rm handoff || true
