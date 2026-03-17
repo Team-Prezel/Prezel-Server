@@ -41,7 +41,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 로그인, 토큰 재발급 등 인증이 필요 없는 API는 프리패스 (로비)
                         .requestMatchers("/auth/login/kakao", "/auth/login/reissue").permitAll()
-
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
                         // 그 외의 모든 요청은 무조건 인증(사원증)이 필요함 (보안 구역)
                         .anyRequest().authenticated()
                 )
