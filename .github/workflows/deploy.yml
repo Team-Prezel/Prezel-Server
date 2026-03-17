@@ -24,8 +24,13 @@ jobs:
       - name: yml 설정 파일 생성
         run: |
           mkdir -p src/main/resources
-          echo "${{ secrets.APPLICATION_PROD_YML }}" > src/main/resources/application-prod.yml
-          echo "${{ secrets.APPLICATION_SECRET_YML }}" > src/main/resources/application-secret.yml
+          cat << 'EOF' > src/main/resources/application-prod.yml
+          ${{ secrets.APPLICATION_PROD_YML }}
+          EOF
+          
+          cat << 'EOF' > src/main/resources/application-secret.yml
+          ${{ secrets.APPLICATION_SECRET_YML }}
+          EOF
 
       - name: 프로젝트 빌드
         run: ./gradlew clean build -x test
