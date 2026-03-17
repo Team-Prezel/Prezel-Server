@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/handoff
+    username: root
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+oauth2:
+  kakao:
+    redirect-uri: "http://localhost:8080/auth/login/kakao"
