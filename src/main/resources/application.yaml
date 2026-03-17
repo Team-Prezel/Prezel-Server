@@ -3,7 +3,6 @@ spring:
     import: classpath:application-secret.yml
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/prezel?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
 
   jpa:
     hibernate:
@@ -12,6 +11,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
 
 oauth2:
   kakao:
