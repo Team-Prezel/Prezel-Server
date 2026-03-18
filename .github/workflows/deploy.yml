@@ -54,5 +54,5 @@ jobs:
             sudo docker stop handoff || true
             sudo docker rm -f handoff || true 
             
-            sudo docker run -d -p 8080:8080 -e SPRING_PROFILES_ACTIVE=prod --name handoff audwns03/handoff
+            sudo docker run -d -p 80:8080 -e SPRING_PROFILES_ACTIVE=prod --name handoff audwns03/handoff
             sudo docker image prune -f
