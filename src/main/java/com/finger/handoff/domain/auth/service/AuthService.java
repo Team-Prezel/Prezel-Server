@@ -38,7 +38,6 @@ public class AuthService {
     private String clientSecret;
 
     public AuthResult processKakaoLogin(String code) {
-        // 1. 카카오 토큰 받기
         KakaoTokenResponse tokenResponse = kakaoAuthClient.getAccessToken(
                 "authorization_code",
                 clientId,
@@ -47,7 +46,6 @@ public class AuthService {
                 clientSecret
         );
 
-        // 2. 카카오 유저 정보 받기
         KakaoUserInfoResponse userInfo = kakaoApiClient.getUserInfo(
                 "Bearer " + tokenResponse.getAccessToken()
         );
@@ -65,12 +63,10 @@ public class AuthService {
     public AuthResult reissueToken(TokenReissueRequest request) {
         String oldRefreshToken = request.getRefreshToken();
 
-        // 1. Refresh Token 자체의 유효성 검증 (만료일, 서명 등)
         if (!jwtTokenProvider.isValidToken(oldRefreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
-        // 2. 토큰에서 유저 정보(PK) 추출
         Long userId = jwtTokenProvider.getUserIdFromToken(oldRefreshToken);
 
         User user = userRepository.findById(userId)
@@ -78,16 +74,21 @@ public class AuthService {
 
         if (user.getRefreshToken() == null || !user.getRefreshToken().equals(oldRefreshToken)) {
             user.deleteRefreshToken();
-            // noRollbackFor 설정 덕분에 아래 예외가 터져도 deleteRefreshToken()은 커밋됨
             throw new BusinessException(ErrorCode.TOKEN_STOLEN);
         }
-        // 4. 새로운 Access Token 및 Refresh Token 발급
         String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
         String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
-        // 5. DB의 Refresh Token 업데이트 (RTR 핵심)
         user.updateRefreshToken(newRefreshToken);
 
         return new AuthResult(newAccessToken, newRefreshToken);
+    }
+
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        user.deleteRefreshToken();
     }
 }
