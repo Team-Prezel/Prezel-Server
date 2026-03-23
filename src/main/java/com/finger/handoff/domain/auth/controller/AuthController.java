@@ -3,10 +3,12 @@ package com.finger.handoff.domain.auth.controller;
 import com.finger.handoff.domain.auth.dto.AuthResult;
 import com.finger.handoff.domain.auth.dto.request.TokenReissueRequest;
 import com.finger.handoff.domain.auth.service.AuthService;
+import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "인증(Auth)", description = "카카오 로그인 및 토큰 재발급 관련 API")
@@ -32,5 +34,16 @@ public class AuthController {
 
         AuthResult result = authService.reissueToken(request);
         return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "로그아웃", description = "DB에 저장된 Refresh Token을 삭제합니다.")
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Long userId = userDetails.getId();
+
+        authService.logout(userId);
+
+        return ResponseEntity.ok("로그아웃이 성공적으로 완료되었습니다.");
     }
 }
