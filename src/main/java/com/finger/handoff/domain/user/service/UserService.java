@@ -31,4 +31,12 @@ public class UserService {
 
         user.updateRefreshToken(refreshToken);
     }
+
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        userRepository.delete(user);
+    }
 }
