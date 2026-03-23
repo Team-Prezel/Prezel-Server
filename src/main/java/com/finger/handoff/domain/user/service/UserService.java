@@ -47,6 +47,25 @@ public class UserService {
 
         return UserDto.builder()
                 .id(user.getId())
+                .nickname(user.getNickname())
+                .email(user.getEmail())
+                .profileImgUrl(user.getProfileImgUrl())
+                .build();
+    }
+
+    @Transactional
+    public UserDto updateUserNickname(Long userId, String newNickname) {
+        if (userRepository.existsByNickname(newNickname)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        user.updateNickname(newNickname);
+        return UserDto.builder()
+                .id(user.getId())
+                .nickname(user.getNickname())
                 .email(user.getEmail())
                 .profileImgUrl(user.getProfileImgUrl())
                 .build();

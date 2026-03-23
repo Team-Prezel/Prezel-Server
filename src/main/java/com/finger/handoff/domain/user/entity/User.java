@@ -23,6 +23,8 @@ public class User {
 
     private String email;
 
+    private String nickname;
+
     private String profileImgUrl;
 
     private String refreshToken;
@@ -33,5 +35,8 @@ public class User {
 
     public void deleteRefreshToken() {
         this.refreshToken = null;
+    }
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
     }
 }
