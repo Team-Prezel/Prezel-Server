@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "인증(Auth)", description = "카카오 로그인 및 토큰 재발급 관련 API")
 @RestController
-@RequestMapping("/auth/login")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -22,7 +22,7 @@ public class AuthController {
     private final UserService userService;
 
     @Operation(summary = "카카오 로그인", description = "카카오 인가 코드를 받아 로그인 또는 회원가입을 진행합니다.")
-    @GetMapping("/kakao")
+    @GetMapping("/login")
     public ResponseEntity<?> kakaoLogin(@RequestParam String code) {
         System.out.println("kakao login");
         AuthResult result = authService.processKakaoLogin(code);

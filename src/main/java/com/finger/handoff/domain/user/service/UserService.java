@@ -1,5 +1,6 @@
 package com.finger.handoff.domain.user.service;
 
+import com.finger.handoff.domain.user.dto.UserDto;
 import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.domain.user.repository.UserRepository;
 import com.finger.handoff.global.error.exception.BusinessException;
@@ -38,5 +39,16 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         userRepository.delete(user);
+    }
+
+    public UserDto getUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return UserDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .profileImgUrl(user.getProfileImgUrl())
+                .build();
     }
 }
