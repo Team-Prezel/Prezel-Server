@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -54,11 +55,44 @@ public class S3ServiceImpl implements S3Service {
         }
     }
 
+    @Override
+    public void deleteProfileImage(String imageUrl) {
+        if (imageUrl == null || imageUrl.trim().isEmpty() || !imageUrl.contains("amazonaws.com")) {
+            return;
+        }
+
+        try {
+            String s3Key = extractKeyFromUrl(imageUrl);
+
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .build();
+
+            s3Client.deleteObject(deleteObjectRequest);
+
+        } catch (Exception e) {
+            /**
+             * 예외 터져도 그냥 냅둠 -> 프로필 사진 안 지워져도 일단 바꾸긴 해야함
+             * (사진 등록 로직에 기존 사진 있을시 삭제하라는 로직 넣을거 => 등록 및 수정 로직을 하나로 합침)
+             * 이거 안잡으면 @Transactional 땜에 롤백 당함 -> 유저는 평생 사진 못바꾸는 버그 발생
+             */
+        }
+    }
+
     private String extractExtension(String originalFilename) {
         if (originalFilename == null || !originalFilename.contains(".")) {
             return "";
         }
         return originalFilename.substring(originalFilename.lastIndexOf("."));
+    }
+
+    private String extractKeyFromUrl(String imageUrl) {
+        String splitStr = ".com/";
+        if (imageUrl.contains(splitStr)) {
+            return imageUrl.substring(imageUrl.indexOf(splitStr) + splitStr.length());
+        }
+        return imageUrl;
     }
 }
 

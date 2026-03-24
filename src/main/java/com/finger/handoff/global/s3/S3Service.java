@@ -5,4 +5,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface S3Service {
 
     String uploadProfileImage(MultipartFile file);
+
+    void deleteProfileImage(String imageUrl);
 }
