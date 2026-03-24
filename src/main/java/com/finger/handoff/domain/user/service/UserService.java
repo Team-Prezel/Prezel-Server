@@ -1,7 +1,10 @@
 package com.finger.handoff.domain.user.service;
 
 import com.finger.handoff.domain.user.dto.UserDto;
+import com.finger.handoff.domain.user.dto.UserWithdrawRequest;
 import com.finger.handoff.domain.user.entity.User;
+import com.finger.handoff.domain.user.entity.UserLeaveLog;
+import com.finger.handoff.domain.user.repository.UserLeaveLogRepository;
 import com.finger.handoff.domain.user.repository.UserRepository;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserLeaveLogRepository userLeaveLogRepository;
 
     @Transactional
     public User findOrCreateUser(String email) {
@@ -34,9 +38,16 @@ public class UserService {
     }
 
     @Transactional
-    public void withdraw(Long userId) {
+    public void withdraw(Long userId, UserWithdrawRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        UserLeaveLog leaveLog = UserLeaveLog.builder()
+                .userId(user.getId())
+                .reasonCategory(request.getReasonCategory())
+                .reasonText(request.getReasonText())
+                .build();
+        userLeaveLogRepository.save(leaveLog);
 
         userRepository.delete(user);
     }
