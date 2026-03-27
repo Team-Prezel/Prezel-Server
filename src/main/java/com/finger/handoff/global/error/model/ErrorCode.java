@@ -16,7 +16,10 @@ public enum ErrorCode {
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U004", "이미 사용 중인 닉네임입니다."),
 
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "T001", "유효하지 않거나 만료된 토큰입니다."),
-    TOKEN_STOLEN(HttpStatus.UNAUTHORIZED, "T002", "토큰 탈취가 의심되어 강제 로그아웃 되었습니다.");
+    TOKEN_STOLEN(HttpStatus.UNAUTHORIZED, "T002", "토큰 탈취가 의심되어 강제 로그아웃 되었습니다."),
+
+    TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "존재하지 않는 약관입니다."),
+    REQUIRED_TERMS_DISAGREED(HttpStatus.BAD_REQUEST, "TR002", "필수 약관에는 반드시 동의해야 합니다.");
 
     private final HttpStatus status;
     private final String code;
