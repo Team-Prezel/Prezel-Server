@@ -7,13 +7,14 @@ import com.finger.handoff.domain.terms.repository.TermsRepository;
 import com.finger.handoff.domain.terms.repository.UserTermsAgreementRepository;
 import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.domain.user.repository.UserRepository;
-import com.finger.handoff.global.error.exception.BusinessException; // 🌟 임포트 확인
-import com.finger.handoff.global.error.model.ErrorCode; // 🌟 임포트 확인
+import com.finger.handoff.global.error.exception.BusinessException;
+import com.finger.handoff.global.error.model.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +30,15 @@ public class TermsService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        long uniqueTermCount = requests.stream()
+                .map(TermsAgreementRequest::getTermsId)
+                .distinct()
+                .count();
+
+        if (uniqueTermCount != requests.size()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
         List<Long> agreedTermIds = requests.stream()
                 .filter(TermsAgreementRequest::getIsAgreed)
                 .map(TermsAgreementRequest::getTermsId)
@@ -42,17 +52,22 @@ public class TermsService {
             }
         }
 
-        List<UserTermsAgreement> agreements = requests.stream().map(request -> {
+        for (TermsAgreementRequest request : requests) {
             Terms terms = termsRepository.findById(request.getTermsId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.TERMS_NOT_FOUND));
 
-            return UserTermsAgreement.builder()
-                    .user(user)
-                    .terms(terms)
-                    .isAgreed(request.getIsAgreed())
-                    .build();
-        }).collect(Collectors.toList());
+            Optional<UserTermsAgreement> existingAgreement = agreementRepository.findByUserAndTerms(user, terms);
 
-        agreementRepository.saveAll(agreements);
+            if (existingAgreement.isPresent()) {
+                existingAgreement.get().updateAgreement(request.getIsAgreed());
+            } else {
+                UserTermsAgreement newAgreement = UserTermsAgreement.builder()
+                        .user(user)
+                        .terms(terms)
+                        .isAgreed(request.getIsAgreed())
+                        .build();
+                agreementRepository.save(newAgreement);
+            }
+        }
     }
 }
