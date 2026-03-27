@@ -3,6 +3,7 @@ package com.finger.handoff.domain.auth.controller;
 import com.finger.handoff.domain.auth.dto.AuthResult;
 import com.finger.handoff.domain.auth.dto.request.TokenReissueRequest;
 import com.finger.handoff.domain.auth.service.AuthService;
+import com.finger.handoff.domain.user.dto.UserWithdrawRequest;
 import com.finger.handoff.domain.user.service.UserService;
 import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,11 +52,13 @@ public class AuthController {
 
     @Operation(summary = "회원탈퇴", description = "DB에 저장된 User정보를 삭제합니다.")
     @DeleteMapping("/withdraw")
-    public ResponseEntity<String> withdraw(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<String> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody UserWithdrawRequest request) {
 
         Long userId = userDetails.getId();
 
-        userService.withdraw(userId);
+        userService.withdraw(userId,request);
 
         return ResponseEntity.ok("회원 탈퇴가 성공적으로 완료되었습니다. 이용해 주셔서 감사합니다.");
     }
