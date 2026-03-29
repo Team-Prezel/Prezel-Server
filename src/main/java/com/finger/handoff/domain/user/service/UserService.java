@@ -45,6 +45,12 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        String profileImgUrl = user.getProfileImgUrl();
+
+        if (profileImgUrl != null && !profileImgUrl.isEmpty()) {
+            s3UploadService.deleteProfileImage(profileImgUrl);
+        }
+
         UserLeaveLog leaveLog = UserLeaveLog.builder()
                 .userId(user.getId())
                 .reasonCategory(request.getReasonCategory())
@@ -68,25 +74,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDto updateUserNickname(Long userId, String newNickname) {
-        if (userRepository.existsByNickname(newNickname)) {
-            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
-        }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        user.updateNickname(newNickname);
-        return UserDto.builder()
-                .id(user.getId())
-                .nickname(user.getNickname())
-                .email(user.getEmail())
-                .profileImgUrl(user.getProfileImgUrl())
-                .build();
-    }
-
-    @Transactional
-    public void setupProfile(Long userId, UserProfileRequest request) {
+    public void updateProfile(Long userId, UserProfileRequest request) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
