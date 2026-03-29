@@ -1,6 +1,7 @@
 package com.finger.handoff.domain.user.service;
 
 import com.finger.handoff.domain.user.dto.UserDto;
+import com.finger.handoff.domain.user.dto.UserProfileRequest;
 import com.finger.handoff.domain.user.dto.UserWithdrawRequest;
 import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.domain.user.entity.UserLeaveLog;
@@ -8,6 +9,7 @@ import com.finger.handoff.domain.user.repository.UserLeaveLogRepository;
 import com.finger.handoff.domain.user.repository.UserRepository;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
+import com.finger.handoff.global.s3.S3Service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserLeaveLogRepository userLeaveLogRepository;
+    private final S3Service s3UploadService;
 
     @Transactional
     public User findOrCreateUser(String email) {
@@ -80,5 +83,23 @@ public class UserService {
                 .email(user.getEmail())
                 .profileImgUrl(user.getProfileImgUrl())
                 .build();
+    }
+
+    @Transactional
+    public void setupProfile(Long userId, UserProfileRequest request) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (userRepository.existsByNickname(request.getNickname())) {
+            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+
+        String imageUrl = user.getProfileImgUrl();
+
+        if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
+            imageUrl = s3UploadService.uploadProfileImage(request.getProfileImage());
+        }
+        user.updateProfile(request.getNickname(), imageUrl);
     }
 }
