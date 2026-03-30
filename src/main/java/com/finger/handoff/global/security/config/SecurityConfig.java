@@ -40,7 +40,7 @@ public class SecurityConfig {
                 // 2. API 주소별 접근 권한 설정 (사내 지도 보안 등급)
                 .authorizeHttpRequests(auth -> auth
                         // 로그인, 토큰 재발급 등 인증이 필요 없는 API는 프리패스 (로비)
-                        .requestMatchers("/auth/login/kakao", "/auth/login/reissue").permitAll()
+                        .requestMatchers("/auth/login", "/auth/login/reissue").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",

@@ -19,4 +19,4 @@ spring:
 
 oauth2:
   kakao:
-    redirect-uri: "http://localhost:8080/auth/login/kakao"
+    redirect-uri: "http://localhost:8080/auth/login"

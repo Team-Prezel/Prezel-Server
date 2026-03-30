@@ -3,22 +3,27 @@ package com.finger.handoff.domain.auth.controller;
 import com.finger.handoff.domain.auth.dto.AuthResult;
 import com.finger.handoff.domain.auth.dto.request.TokenReissueRequest;
 import com.finger.handoff.domain.auth.service.AuthService;
+import com.finger.handoff.domain.user.dto.UserWithdrawRequest;
+import com.finger.handoff.domain.user.service.UserService;
+import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "인증(Auth)", description = "카카오 로그인 및 토큰 재발급 관련 API")
 @RestController
-@RequestMapping("/auth/login")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
     @Operation(summary = "카카오 로그인", description = "카카오 인가 코드를 받아 로그인 또는 회원가입을 진행합니다.")
-    @GetMapping("/kakao")
+    @GetMapping("/login")
     public ResponseEntity<?> kakaoLogin(@RequestParam String code) {
         System.out.println("kakao login");
         AuthResult result = authService.processKakaoLogin(code);
@@ -32,5 +37,29 @@ public class AuthController {
 
         AuthResult result = authService.reissueToken(request);
         return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "로그아웃", description = "DB에 저장된 Refresh Token을 삭제합니다.")
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Long userId = userDetails.getId();
+
+        authService.logout(userId);
+
+        return ResponseEntity.ok("로그아웃이 성공적으로 완료되었습니다.");
+    }
+
+    @Operation(summary = "회원탈퇴", description = "DB에 저장된 User정보를 삭제합니다.")
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<String> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody UserWithdrawRequest request) {
+
+        Long userId = userDetails.getId();
+
+        userService.withdraw(userId,request);
+
+        return ResponseEntity.ok("회원 탈퇴가 성공적으로 완료되었습니다. 이용해 주셔서 감사합니다.");
     }
 }
