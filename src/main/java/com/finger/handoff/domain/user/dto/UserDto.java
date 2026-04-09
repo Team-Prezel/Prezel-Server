@@ -15,4 +15,6 @@ public class UserDto {
     private String nickname;
 
     private String profileImgUrl;
+
+    private Boolean isTermsAgreement;
 }

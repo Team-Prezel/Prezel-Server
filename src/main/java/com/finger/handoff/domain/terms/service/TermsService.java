@@ -69,5 +69,7 @@ public class TermsService {
                 agreementRepository.save(newAgreement);
             }
         }
+
+        user.updateTermsAgreement(true);
     }
 }

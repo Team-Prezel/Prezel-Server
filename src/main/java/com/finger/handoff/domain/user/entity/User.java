@@ -29,6 +29,8 @@ public class User {
 
     private String refreshToken;
 
+    private Boolean isTermsAgreement;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserTermsAgreement> termsAgreements = new ArrayList<>();
 
@@ -49,5 +51,9 @@ public class User {
         if (profileImgUrl != null) {
             this.profileImgUrl = profileImgUrl;
         }
+    }
+
+    public void updateTermsAgreement(Boolean isTermsAgreement) {
+        this.isTermsAgreement = isTermsAgreement;
     }
 }

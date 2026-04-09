@@ -28,6 +28,7 @@ public class UserService {
                 .orElseGet(() -> userRepository.save(
                         User.builder()
                                 .email(email)
+                                .isTermsAgreement(false)
                                 .build()
                 ));
     }
@@ -70,6 +71,7 @@ public class UserService {
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .profileImgUrl(user.getProfileImgUrl())
+                .isTermsAgreement(user.getIsTermsAgreement())
                 .build();
     }
 
