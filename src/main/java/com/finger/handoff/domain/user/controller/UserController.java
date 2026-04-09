@@ -45,4 +45,12 @@ public class UserController {
 
         return ResponseEntity.ok("프로필 설정이 완료되었습니다.");
     }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<Boolean> checkNickname(@RequestParam String nickname) {
+
+        boolean isAvailable = userService.isNicknameAvailable(nickname);
+
+        return ResponseEntity.ok(isAvailable);
+    }
 }

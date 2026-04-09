@@ -96,4 +96,12 @@ public class UserService {
         }
         user.updateProfile(request.getNickname(), imageUrl);
     }
+
+    public boolean isNicknameAvailable(String nickname) {
+        if (nickname == null || nickname.trim().isEmpty()) {
+            return false;
+        }
+
+        return !userRepository.existsByNickname(nickname);
+    }
 }
