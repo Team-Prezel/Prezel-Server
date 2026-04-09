@@ -31,6 +31,8 @@ public class User {
 
     private Boolean isTermsAgreement;
 
+    private Boolean isProfileComplete;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserTermsAgreement> termsAgreements = new ArrayList<>();
 
@@ -55,5 +57,9 @@ public class User {
 
     public void updateTermsAgreement(Boolean isTermsAgreement) {
         this.isTermsAgreement = isTermsAgreement;
+    }
+
+    public void updateProfileComplete(Boolean isProfileComplete) {
+        this.isProfileComplete = isProfileComplete;
     }
 }

@@ -17,4 +17,6 @@ public class UserDto {
     private String profileImgUrl;
 
     private Boolean isTermsAgreement;
+
+    private Boolean isProfileComplete;
 }

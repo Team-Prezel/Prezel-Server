@@ -29,6 +29,7 @@ public class UserService {
                         User.builder()
                                 .email(email)
                                 .isTermsAgreement(false)
+                                .isProfileComplete(false)
                                 .build()
                 ));
     }
@@ -66,12 +67,15 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        Boolean isProfileComplete = (user.getNickname() != null && !user.getNickname().trim().isEmpty());
+
         return UserDto.builder()
                 .id(user.getId())
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .profileImgUrl(user.getProfileImgUrl())
                 .isTermsAgreement(user.getIsTermsAgreement())
+                .isProfileComplete(isProfileComplete)
                 .build();
     }
 
