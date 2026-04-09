@@ -46,6 +46,10 @@ public class UserController {
         return ResponseEntity.ok("프로필 설정이 완료되었습니다.");
     }
 
+    @Operation(
+            summary = "닉네임 중복 확인",
+            description = "입력한 닉네임의 사용 가능 여부를 반환합니다. (true: 사용 가능, false: 중복)"
+    )
     @GetMapping("/check-nickname")
     public ResponseEntity<Boolean> checkNickname(@RequestParam String nickname) {
 
