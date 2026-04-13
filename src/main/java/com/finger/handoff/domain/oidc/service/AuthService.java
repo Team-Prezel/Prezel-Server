@@ -10,7 +10,6 @@ import com.finger.handoff.global.error.model.ErrorCode;
 import com.finger.handoff.global.security.provider.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +21,6 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final KakaoOidcValidator kakaoOidcValidator;
-
-    @Value("${oauth.kakao.client-id}")
-    private String clientId;
-
-    @Value("${oauth.kakao.redirect-uri}")
-    private String redirectUri;
-
-    @Value("${oauth.kakao.client-secret}")
-    private String clientSecret;
 
     @Transactional
     public LoginResponse loginWithIdToken(String idToken) {
