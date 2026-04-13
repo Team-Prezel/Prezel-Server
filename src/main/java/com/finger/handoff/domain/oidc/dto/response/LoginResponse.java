@@ -1,13 +1,14 @@
-package com.finger.handoff.domain.auth.dto;
+package com.finger.handoff.domain.oidc.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class AuthResult {
+public class LoginResponse {
 
     private String accessToken;
+
     private String refreshToken;
 
 }

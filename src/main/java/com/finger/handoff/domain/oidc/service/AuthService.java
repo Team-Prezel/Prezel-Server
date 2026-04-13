@@ -1,12 +1,6 @@
-/*
-package com.finger.handoff.domain.auth.service;
+package com.finger.handoff.domain.oidc.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.finger.handoff.domain.auth.api.KakaoApiClient;
-import com.finger.handoff.domain.auth.api.KakaoAuthClient;
 import com.finger.handoff.domain.oidc.dto.response.LoginResponse;
-import com.finger.handoff.domain.auth.dto.Response.KakaoTokenResponse;
-import com.finger.handoff.domain.auth.dto.Response.KakaoUserInfoResponse;
 import com.finger.handoff.domain.oidc.dto.request.TokenReissueRequest;
 import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.domain.user.repository.UserRepository;
@@ -14,66 +8,46 @@ import com.finger.handoff.domain.user.service.UserService;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
 import com.finger.handoff.global.security.provider.JwtTokenProvider;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Base64;
-import java.util.Map;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final KakaoAuthClient kakaoAuthClient;
-    private final KakaoApiClient kakaoApiClient;
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final KakaoOidcValidator kakaoOidcValidator;
 
-    // 환경변수 가져오기
-    @Value("${oauth2.kakao.client-id}")
+    @Value("${oauth.kakao.client-id}")
     private String clientId;
 
-    @Value("${oauth2.kakao.redirect-uri}")
+    @Value("${oauth.kakao.redirect-uri}")
     private String redirectUri;
 
-    @Value("${oauth2.kakao.client-secret}")
+    @Value("${oauth.kakao.client-secret}")
     private String clientSecret;
 
+    @Transactional
     public LoginResponse loginWithIdToken(String idToken) {
-        User userInfo = decodeIdToken(idToken);
+        Claims payload = kakaoOidcValidator.getValidatedPayload(idToken);
 
-        User user = userService.findOrCreateUser(userInfo.getEmail());
+        String email = payload.get("email", String.class);
+
+        User user = userService.findOrCreateUser(email);
 
         String accessToken = jwtTokenProvider.createAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
-        return  new LoginResponse(accessToken, refreshToken);
+        user.updateRefreshToken(refreshToken);
+
+        return new LoginResponse(accessToken, refreshToken);
     }
 
-    public LoginResponse processKakaoLogin(String code) {
-        KakaoTokenResponse tokenResponse = kakaoAuthClient.getAccessToken(
-                "authorization_code",
-                clientId,
-                redirectUri,
-                code,
-                clientSecret
-        );
-
-        KakaoUserInfoResponse userInfo = kakaoApiClient.getUserInfo(
-                "Bearer " + tokenResponse.getAccessToken()
-        );
-
-        String email = userInfo.getKakaoAccount().getEmail();
-
-        User user = userService.findOrCreateUser(email);
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-
-        userService.updateRefreshToken(user.getId(), refreshToken);
-        return new LoginResponse(jwtTokenProvider.createAccessToken(user.getId()), refreshToken);
-    }
 
     @Transactional(noRollbackFor = BusinessException.class)
     public LoginResponse reissueToken(TokenReissueRequest request) {
@@ -107,21 +81,4 @@ public class AuthService {
 
         user.deleteRefreshToken();
     }
-
-    private User decodeIdToken(String idToken) {
-        try {
-            String payload = idToken.split("\\.")[1];
-            String decodedPayload = new String(Base64.getDecoder().decode(payload));
-            ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, Object> map = objectMapper.readValue(decodedPayload, Map.class);
-
-            return User.builder()
-                    .email((String) map.get("email"))
-                    .nickname((String) map.get("nickname"))
-                    .build();
-        } catch (Exception e) {
-            throw new BusinessException(ErrorCode.INVALID_ID_TOKEN);
-        }
-    }
 }
-*/
