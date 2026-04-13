@@ -1,4 +1,4 @@
-package com.finger.handoff.domain.auth.dto.request;
+package com.finger.handoff.domain.oidc.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
