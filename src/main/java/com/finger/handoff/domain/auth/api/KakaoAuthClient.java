@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff.domain.auth.api;
 
 import com.finger.handoff.domain.auth.dto.Response.KakaoTokenResponse;
@@ -17,4 +18,4 @@ public interface KakaoAuthClient {
             @RequestParam("code") String code,
             @RequestParam("client_secret") String clientSecret
     );
-}
+}*/

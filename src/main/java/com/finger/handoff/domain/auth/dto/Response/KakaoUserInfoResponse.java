@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff.domain.auth.dto.Response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -18,3 +19,4 @@ public class KakaoUserInfoResponse {
     }
 
 }
+*/

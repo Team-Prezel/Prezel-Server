@@ -22,7 +22,8 @@ public enum ErrorCode {
     REQUIRED_TERMS_DISAGREED(HttpStatus.BAD_REQUEST, "TR002", "필수 약관에는 반드시 동의해야 합니다."),
   
     FILE_IS_EMPTY(HttpStatus.NOT_FOUND, "F001", "파일이 없습니다."),
-    FILE_UPLOAD_FAILED(HttpStatus.FAILED_DEPENDENCY, "F002", "파일 업로드 중 오류가 발생했습니다.");
+    FILE_UPLOAD_FAILED(HttpStatus.FAILED_DEPENDENCY, "F002", "파일 업로드 중 오류가 발생했습니다."),
+    INVALID_ID_TOKEN(HttpStatus.NOT_FOUND, "T003", "idToken이 올바르지 않습니다.");
 
     private final HttpStatus status;
     private final String code;

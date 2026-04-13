@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff.domain.auth.api;
 
 import com.finger.handoff.domain.auth.dto.Response.KakaoUserInfoResponse;
@@ -13,4 +14,4 @@ public interface KakaoApiClient {
     KakaoUserInfoResponse getUserInfo(
             @RequestHeader("Authorization") String accessToken
     );
-}
+}*/
