@@ -30,6 +30,9 @@ public class KakaoOidcValidator {
     @Value("${oauth.kakao.native-app-key}")
     private String nativeAppKey;
 
+    @Value("${oauth.kakao.debug-native-app-key}")
+    private String debugNativeAppKey;
+
     public Claims getValidatedPayload(String idToken) {
         try {
             String headerStr = new String(Base64.getUrlDecoder().decode(idToken.split("\\.")[0]));
@@ -59,7 +62,7 @@ public class KakaoOidcValidator {
                     .getBody();
 
             String aud = claims.getAudience();
-            if (!aud.equals(clientId) && !aud.equals(nativeAppKey)) {
+            if (!aud.equals(clientId) && !aud.equals(nativeAppKey) && !aud.equals(debugNativeAppKey)) {
                 throw new IllegalArgumentException("허용되지 않은 App Key로 발급된 토큰입니다.");
             }
 
