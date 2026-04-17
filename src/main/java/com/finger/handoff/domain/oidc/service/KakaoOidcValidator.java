@@ -27,6 +27,9 @@ public class KakaoOidcValidator {
     @Value("${oauth.kakao.client-id}")
     private String clientId;
 
+    @Value("${oauth.kakao.native-app-key}")
+    private String nativeAppKey;
+
     public Claims getValidatedPayload(String idToken) {
         try {
             String headerStr = new String(Base64.getUrlDecoder().decode(idToken.split("\\.")[0]));
@@ -48,13 +51,19 @@ public class KakaoOidcValidator {
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
 
-            return Jwts.parserBuilder()
+            Claims claims = Jwts.parserBuilder()
                     .setSigningKey(publicKey)
                     .requireIssuer("https://kauth.kakao.com")
-                    .requireAudience(clientId)
                     .build()
                     .parseClaimsJws(idToken)
                     .getBody();
+
+            String aud = claims.getAudience();
+            if (!aud.equals(clientId) && !aud.equals(nativeAppKey)) {
+                throw new IllegalArgumentException("허용되지 않은 App Key로 발급된 토큰입니다.");
+            }
+
+            return claims;
 
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INVALID_ID_TOKEN);
