@@ -14,9 +14,18 @@ public class UserDto {
 
     private String nickname;
 
-    private String profileImgUrl;
+    private ProfileImageDto profileImgUrl;
 
     private Boolean isTermsAgreement;
 
     private Boolean isProfileComplete;
+
+
+    @Getter
+    @Builder
+    @AllArgsConstructor
+    public static class ProfileImageDto {
+        private String url;
+        private Boolean isDefault;
+    }
 }
