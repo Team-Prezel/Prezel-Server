@@ -69,11 +69,19 @@ public class UserService {
 
         Boolean isProfileComplete = (user.getNickname() != null && !user.getNickname().trim().isEmpty());
 
+        String imageUrl = user.getProfileImgUrl();
+        boolean isDefault = (imageUrl == null || imageUrl.trim().isEmpty());
+
+        UserDto.ProfileImageDto profileImgDto = UserDto.ProfileImageDto.builder()
+                .url(imageUrl)
+                .isDefault(isDefault)
+                .build();
+
         return UserDto.builder()
                 .id(user.getId())
                 .nickname(user.getNickname())
                 .email(user.getEmail())
-                .profileImgUrl(user.getProfileImgUrl())
+                .profileImgUrl(profileImgDto)
                 .isTermsAgreement(user.getIsTermsAgreement())
                 .isProfileComplete(isProfileComplete)
                 .build();
