@@ -61,6 +61,9 @@ dependencies {
 
     //s3
     implementation 'software.amazon.awssdk:s3:2.25.11'
+
+    //azure
+    implementation 'com.microsoft.cognitiveservices.speech:client-sdk:1.47.0@jar'
 }
 
 dependencyManagement {
