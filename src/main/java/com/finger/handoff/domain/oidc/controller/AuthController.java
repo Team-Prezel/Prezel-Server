@@ -36,9 +36,9 @@ public class AuthController {
             ))
     })
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<KakaoLoginRequest>> kakaoLogin(@RequestBody KakaoLoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> kakaoLogin(@RequestBody KakaoLoginRequest request) {
         LoginResponse result = authService.loginWithIdToken(request.getIdToken());
-        return ResponseEntity.ok(ApiResponse.success(request));
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Operation(summary = "토큰 재발급", description = "Refresh Token을 이용하여 Access Token과 Refresh Token을 재발급합니다.")
