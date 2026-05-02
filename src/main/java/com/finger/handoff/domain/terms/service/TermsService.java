@@ -1,6 +1,7 @@
 package com.finger.handoff.domain.terms.service;
 
 import com.finger.handoff.domain.terms.dto.TermsAgreementRequest;
+import com.finger.handoff.domain.terms.dto.TermsResponse;
 import com.finger.handoff.domain.terms.entity.Terms;
 import com.finger.handoff.domain.terms.entity.UserTermsAgreement;
 import com.finger.handoff.domain.terms.repository.TermsRepository;
@@ -71,5 +72,12 @@ public class TermsService {
         }
 
         user.updateTermsAgreement(true);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TermsResponse> getTermsList() {
+        return termsRepository.findAll().stream()
+                .map(TermsResponse::new)
+                .collect(Collectors.toList());
     }
 }
