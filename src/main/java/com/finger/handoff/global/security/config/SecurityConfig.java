@@ -5,6 +5,7 @@ import com.finger.handoff.global.security.handler.CustomAuthenticationEntryPoint
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -40,7 +41,8 @@ public class SecurityConfig {
                 // 2. API 주소별 접근 권한 설정 (사내 지도 보안 등급)
                 .authorizeHttpRequests(auth -> auth
                         // 로그인, 토큰 재발급 등 인증이 필요 없는 API는 프리패스 (로비)
-                        .requestMatchers("/auth/login", "/auth/reissue","init-dummy-terms").permitAll()
+                        .requestMatchers("/auth/login", "/auth/reissue").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/terms").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
