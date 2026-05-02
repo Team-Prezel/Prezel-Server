@@ -43,14 +43,14 @@ public class TermsController {
             ))
     })
     @PostMapping("/agree")
-    public ResponseEntity<String> agreeTerms(
+    public ResponseEntity<ApiResponse<Void>> agreeTerms(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody List<TermsAgreementRequest> requests
     ) {
         Long userId = userDetails.getId();
         termsService.saveAgreements(userId, requests);
 
-        return ResponseEntity.ok("약관 동의가 완료되었습니다.");
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
     @Operation(summary = "약관 목록 조회", description = "전체 약관 목록(요약, 원문 포함)을 조회합니다.")
