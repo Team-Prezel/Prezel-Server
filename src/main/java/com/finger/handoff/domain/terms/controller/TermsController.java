@@ -53,6 +53,7 @@ public class TermsController {
         return ResponseEntity.ok("약관 동의가 완료되었습니다.");
     }
 
+    @Operation(summary = "약관 목록 조회", description = "전체 약관 목록(요약, 원문 포함)을 조회합니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<List<TermsResponse>>> getTermsList() {
         List<TermsResponse> result = termsService.getTermsList();
