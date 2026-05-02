@@ -18,9 +18,13 @@ public class Terms {
     @Column(nullable = false)
     private String title;
 
+    @Column(nullable = false)
+    private String summary;
+
     @Lob
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
+
 
     @Column(nullable = false)
     private Boolean isRequired;
@@ -29,8 +33,9 @@ public class Terms {
     private String version;
 
     @Builder
-    public Terms(String title, String content, Boolean isRequired, String version) {
+    public Terms(String title, String summary, String content, Boolean isRequired, String version) {
         this.title = title;
+        this.summary = summary;
         this.content = content;
         this.isRequired = isRequired;
         this.version = version;
