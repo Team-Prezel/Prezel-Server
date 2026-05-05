@@ -13,6 +13,7 @@ import com.finger.handoff.global.s3.S3Service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @RequiredArgsConstructor
 @Service
@@ -102,18 +103,20 @@ public class UserService {
             }
         }
 
+        MultipartFile file = request.getProfileImage();
+
         if (Boolean.TRUE.equals(request.getIsImageDeleted())) {
             if (user.getProfileImgUrl() != null) {
                 s3UploadService.deleteProfileImage(user.getProfileImgUrl());
             }
-            user.updateProfile(null, null);
+            user.updateProfile(user.getNickname(), null);
         }
-        else if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
+        else if (file != null && !file.isEmpty()) {
             if (user.getProfileImgUrl() != null) {
                 s3UploadService.deleteProfileImage(user.getProfileImgUrl());
             }
-            String uploadedUrl = s3UploadService.uploadProfileImage(request.getProfileImage());
-            user.updateProfile(uploadedUrl, request.getProfileImage().getOriginalFilename());
+            String uploadedUrl = s3UploadService.uploadProfileImage(file);
+            user.updateProfile(user.getNickname(), uploadedUrl);
         }
     }
 
