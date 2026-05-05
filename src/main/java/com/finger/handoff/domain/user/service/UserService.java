@@ -105,7 +105,7 @@ public class UserService {
 
         MultipartFile file = request.getProfileImage();
 
-        if (Boolean.TRUE.equals(request.getIsImageDeleted())) {
+        if (Boolean.TRUE.equals(request.getDeleteImage())) {
             if (user.getProfileImgUrl() != null) {
                 s3UploadService.deleteProfileImage(user.getProfileImgUrl());
             }

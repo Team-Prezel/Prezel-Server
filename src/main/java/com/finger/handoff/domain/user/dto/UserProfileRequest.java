@@ -14,5 +14,5 @@ public class UserProfileRequest {
 
     private MultipartFile profileImage;
 
-    private Boolean isImageDeleted;
+    private Boolean deleteImage;
 }
