@@ -89,20 +89,32 @@ public class UserService {
 
     @Transactional
     public void updateProfile(Long userId, UserProfileRequest request) {
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
-        if (userRepository.existsByNickname(request.getNickname())) {
-            throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+        String newNickname = request.getNickname();
+        if (newNickname != null && !newNickname.trim().isEmpty()) {
+            if (!user.getNickname().equals(newNickname)) {
+                if (userRepository.existsByNickname(newNickname)) {
+                    throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
+                }
+                user.updateNickname(newNickname);
+            }
         }
 
-        String imageUrl = user.getProfileImgUrl();
-
-        if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
-            imageUrl = s3UploadService.uploadProfileImage(request.getProfileImage());
+        if (Boolean.TRUE.equals(request.getIsImageDeleted())) {
+            if (user.getProfileImgUrl() != null) {
+                s3UploadService.deleteProfileImage(user.getProfileImgUrl());
+            }
+            user.updateProfile(null, null);
         }
-        user.updateProfile(request.getNickname(), imageUrl);
+        else if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
+            if (user.getProfileImgUrl() != null) {
+                s3UploadService.deleteProfileImage(user.getProfileImgUrl());
+            }
+            String uploadedUrl = s3UploadService.uploadProfileImage(request.getProfileImage());
+            user.updateProfile(uploadedUrl, request.getProfileImage().getOriginalFilename());
+        }
     }
 
     public boolean isNicknameAvailable(String nickname) {
