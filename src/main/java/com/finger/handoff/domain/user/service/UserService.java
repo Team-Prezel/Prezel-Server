@@ -94,7 +94,7 @@ public class UserService {
 
         String newNickname = request.getNickname();
         if (newNickname != null && !newNickname.trim().isEmpty()) {
-            if (!user.getNickname().equals(newNickname)) {
+            if (user.getNickname() == null || !user.getNickname().equals(newNickname)) {
                 if (userRepository.existsByNickname(newNickname)) {
                     throw new BusinessException(ErrorCode.DUPLICATE_NICKNAME);
                 }
