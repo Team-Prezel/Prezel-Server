@@ -3,21 +3,21 @@ package com.finger.handoff.domain.practice.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.practice.dto.PracticeDto;
+import com.finger.handoff.domain.practice.repository.PracticeScriptRepository;
 import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
 import java.util.concurrent.Future;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class PracticeService {
 
     @Value("${azure.speech.key}$")
@@ -27,17 +27,17 @@ public class PracticeService {
     private String speechRegion;
 
     private final ObjectMapper objectMapper;
+    private final PracticeScriptRepository repository;
 
-    private final List<String> PRACTICE_SENTENCES = Arrays.asList(
-            "동해물과 백두산이 마르고 닳도록 하느님이 보우하사 우리나라 만세",
-            "남산위에 저 소나무 철갑을 두른듯 바람서리 불변함은 우리 기상일세",
-            "가을 하늘 공활한데 높고 구름없이 밝은 달은 우리 가슴 일편단심일세",
-            "이기상과 이 맘으로 충성을 다하여 괴로우나 즐거우나 나라 사랑하세"
-    );
 
     public String getRandomSentence() {
-        Random random = new Random();
-        return PRACTICE_SENTENCES.get(random.nextInt(PRACTICE_SENTENCES.size()));
+        String script = repository.findRandomScript();
+
+        if (script == null || script.isBlank()) {
+            return "DB에 문장이 없어서 기본 문장이 표시됩니다.";
+        }
+
+        return script;
     }
 
     public PracticeDto.AnalysisResponse analyzePracticeVoice(MultipartFile audioFile, String referenceText) {
