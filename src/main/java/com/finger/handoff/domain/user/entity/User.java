@@ -46,13 +46,8 @@ public class User {
     public void updateNickname(String nickname) {
         this.nickname = nickname;
     }
-    public void updateProfile(String nickname, String profileImgUrl) {
-        if (nickname != null) {
-            this.nickname = nickname;
-        }
-        if (profileImgUrl != null) {
-            this.profileImgUrl = profileImgUrl;
-        }
+    public void updateProfileImgUrl(String profileImgUrl) {
+        this.profileImgUrl = profileImgUrl;
     }
 
     public void updateTermsAgreement(Boolean isTermsAgreement) {
