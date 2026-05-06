@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.practice.dto.PracticeDto;
 import com.finger.handoff.domain.practice.repository.PracticeScriptRepository;
+import com.finger.handoff.global.audio.AudioConverter;
+import com.finger.handoff.global.error.exception.BusinessException;
+import com.finger.handoff.global.error.model.ErrorCode;
 import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.RequiredArgsConstructor;
@@ -20,14 +23,15 @@ import java.util.concurrent.Future;
 @Transactional(readOnly = true)
 public class PracticeService {
 
-    @Value("${azure.speech.key}$")
-    private String speechKey;
-
-    @Value("${azure.speech.region}$")
-    private String speechRegion;
-
     private final ObjectMapper objectMapper;
     private final PracticeScriptRepository repository;
+    private final AudioConverter audioConverter;
+
+    @Value("${azure.speech.key}")
+    private String speechKey;
+
+    @Value("${azure.speech.region}")
+    private String speechRegion;
 
 
     public String getRandomSentence() {
@@ -41,14 +45,13 @@ public class PracticeService {
     }
 
     public PracticeDto.AnalysisResponse analyzePracticeVoice(MultipartFile audioFile, String referenceText) {
-        File tempFile = null;
+        File convertedWavFile = null;
         try {
-            tempFile = File.createTempFile("audio_", ".wav");
-            audioFile.transferTo(tempFile);
+            convertedWavFile = audioConverter.convertToWav(audioFile);
 
             SpeechConfig speechConfig = SpeechConfig.fromSubscription(speechKey, speechRegion);
             speechConfig.setSpeechRecognitionLanguage("ko-KR");
-            AudioConfig audioConfig = AudioConfig.fromWavFileInput(tempFile.getAbsolutePath());
+            AudioConfig audioConfig = AudioConfig.fromWavFileInput(convertedWavFile.getAbsolutePath());
 
             PronunciationAssessmentConfig pronunciationConfig = new PronunciationAssessmentConfig(
                     referenceText,
@@ -65,16 +68,20 @@ public class PracticeService {
 
                 if (result.getReason() == ResultReason.RecognizedSpeech) {
                     return extractAnalysisResult(result, referenceText);
+                } else if (result.getReason() == ResultReason.NoMatch) {
+                    throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
                 } else {
-                    throw new RuntimeException("음성 인식에 실패했습니다. Reason: " + result.getReason());
+                    throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
                 }
             }
 
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("음성 분석 처리 중 서버 오류가 발생했습니다.");
+            throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         } finally {
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
+            if (convertedWavFile != null && convertedWavFile.exists()) {
+                convertedWavFile.delete();
             }
         }
     }
