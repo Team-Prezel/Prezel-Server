@@ -104,19 +104,20 @@ public class UserService {
         }
 
         MultipartFile file = request.getProfileImage();
+        String currentImgUrl = user.getProfileImgUrl();
 
         if (Boolean.TRUE.equals(request.getDeleteImage())) {
-            if (user.getProfileImgUrl() != null) {
-                s3UploadService.deleteProfileImage(user.getProfileImgUrl());
+            if (currentImgUrl != null) {
+                s3UploadService.deleteProfileImage(currentImgUrl);
             }
-            user.updateProfile(user.getNickname(), null);
+            user.updateProfileImgUrl(null);
         }
         else if (file != null && !file.isEmpty()) {
-            if (user.getProfileImgUrl() != null) {
-                s3UploadService.deleteProfileImage(user.getProfileImgUrl());
+            if (currentImgUrl != null) {
+                s3UploadService.deleteProfileImage(currentImgUrl);
             }
             String uploadedUrl = s3UploadService.uploadProfileImage(file);
-            user.updateProfile(user.getNickname(), uploadedUrl);
+            user.updateProfileImgUrl(uploadedUrl);
         }
     }
 
