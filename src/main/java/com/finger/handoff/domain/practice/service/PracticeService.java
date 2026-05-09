@@ -33,45 +33,55 @@ public class PracticeService {
     @Value("${azure.speech.region}")
     private String speechRegion;
 
-
     public String getRandomSentence() {
         String script = repository.findRandomScript();
 
         if (script == null || script.isBlank()) {
-            return "DB에 문장이 없어서 기본 문장이 표시됩니다.";
+            throw new BusinessException(ErrorCode.SCRIPT_NOT_FOUND);
         }
 
         return script;
     }
 
     public PracticeDto.AnalysisResponse analyzePracticeVoice(MultipartFile audioFile, String referenceText) {
+
+        if (audioFile == null || audioFile.isEmpty()) {
+            throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
+        }
+
         File convertedWavFile = null;
         try {
-            convertedWavFile = audioConverter.convertToWav(audioFile);
+            try {
+                convertedWavFile = audioConverter.convertToWav(audioFile);
+            } catch (Exception e) {
+                throw new BusinessException(ErrorCode.FILE_CONVERT_FAILED);
+            }
 
-            SpeechConfig speechConfig = SpeechConfig.fromSubscription(speechKey, speechRegion);
-            speechConfig.setSpeechRecognitionLanguage("ko-KR");
-            AudioConfig audioConfig = AudioConfig.fromWavFileInput(convertedWavFile.getAbsolutePath());
+            try (SpeechConfig speechConfig = SpeechConfig.fromSubscription(speechKey, speechRegion);
+                 AudioConfig audioConfig = AudioConfig.fromWavFileInput(convertedWavFile.getAbsolutePath())) {
 
-            PronunciationAssessmentConfig pronunciationConfig = new PronunciationAssessmentConfig(
-                    referenceText,
-                    PronunciationAssessmentGradingSystem.HundredMark,
-                    PronunciationAssessmentGranularity.Phoneme,
-                    true
-            );
+                speechConfig.setSpeechRecognitionLanguage("ko-KR");
 
-            try (SpeechRecognizer recognizer = new SpeechRecognizer(speechConfig, audioConfig)) {
-                pronunciationConfig.applyTo(recognizer);
+                PronunciationAssessmentConfig pronunciationConfig = new PronunciationAssessmentConfig(
+                        referenceText,
+                        PronunciationAssessmentGradingSystem.HundredMark,
+                        PronunciationAssessmentGranularity.Phoneme,
+                        true
+                );
 
-                Future<SpeechRecognitionResult> task = recognizer.recognizeOnceAsync();
-                SpeechRecognitionResult result = task.get();
+                try (SpeechRecognizer recognizer = new SpeechRecognizer(speechConfig, audioConfig)) {
+                    pronunciationConfig.applyTo(recognizer);
 
-                if (result.getReason() == ResultReason.RecognizedSpeech) {
-                    return extractAnalysisResult(result, referenceText);
-                } else if (result.getReason() == ResultReason.NoMatch) {
-                    throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
-                } else {
-                    throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
+                    Future<SpeechRecognitionResult> task = recognizer.recognizeOnceAsync();
+                    SpeechRecognitionResult result = task.get();
+
+                    if (result.getReason() == ResultReason.RecognizedSpeech) {
+                        return extractAnalysisResult(result, referenceText);
+                    } else if (result.getReason() == ResultReason.NoMatch) {
+                        throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
+                    } else {
+                        throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
+                    }
                 }
             }
 
@@ -92,12 +102,19 @@ public class PracticeService {
 
         String jsonResult = result.getProperties().getProperty(PropertyId.SpeechServiceResponse_JsonResult);
         JsonNode rootNode = objectMapper.readTree(jsonResult);
-        JsonNode wordsNode = rootNode.path("NBest").get(0).path("Words");
+
+        JsonNode wordsNode = rootNode.path("NBest").path(0).path("Words");
 
         long totalDurationDocs = 0;
+
         if (wordsNode.isArray() && wordsNode.size() > 0) {
+            JsonNode firstWord = wordsNode.get(0);
+            long startOffset = firstWord.path("Offset").asLong();
+
             JsonNode lastWord = wordsNode.get(wordsNode.size() - 1);
-            totalDurationDocs = lastWord.path("Offset").asLong() + lastWord.path("Duration").asLong();
+            long endDocs = lastWord.path("Offset").asLong() + lastWord.path("Duration").asLong();
+
+            totalDurationDocs = endDocs - startOffset;
         }
 
         double durationSeconds = totalDurationDocs / 10000000.0;

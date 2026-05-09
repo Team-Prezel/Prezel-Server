@@ -17,13 +17,16 @@ public enum ErrorCode {
 
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "T001", "유효하지 않거나 만료된 토큰입니다."),
     TOKEN_STOLEN(HttpStatus.UNAUTHORIZED, "T002", "토큰 탈취가 의심되어 강제 로그아웃 되었습니다."),
+    INVALID_ID_TOKEN(HttpStatus.NOT_FOUND, "T003", "idToken이 올바르지 않습니다."),
 
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "존재하지 않는 약관입니다."),
     REQUIRED_TERMS_DISAGREED(HttpStatus.BAD_REQUEST, "TR002", "필수 약관에는 반드시 동의해야 합니다."),
 
     FILE_IS_EMPTY(HttpStatus.NOT_FOUND, "F001", "파일이 없습니다."),
     FILE_UPLOAD_FAILED(HttpStatus.FAILED_DEPENDENCY, "F002", "파일 업로드 중 오류가 발생했습니다."),
-    INVALID_ID_TOKEN(HttpStatus.NOT_FOUND, "T003", "idToken이 올바르지 않습니다."),
+    FILE_CONVERT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "F003", "오디오 파일 변환 중 오류가 발생했습니다."),
+
+    SCRIPT_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "연습할 문장을 찾을 수 없습니다."),
 
     VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, "V001", "음성을 인식하지 못했습니다. 다시 녹음해 주세요."),
     VOICE_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "V002", "음성 분석 처리 중 서버 오류가 발생했습니다.");
