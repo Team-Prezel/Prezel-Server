@@ -1,9 +1,8 @@
-FROM bellsoft/liberica-openjdk-alpine:21
+FROM bellsoft/liberica-openjdk-debian:21
 
-# ffmpeg 패키지 추가
-RUN apk add --no-cache tzdata ffmpeg && \
-    cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
-    echo "Asia/Seoul" > /etc/timezone
+ENV TZ=Asia/Seoul
+RUN apt-get update && apt-get install -y tzdata ffmpeg libuuid1 libasound2 && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 ARG JAR_FILE=build/libs/*.jar
 COPY ${JAR_FILE} app.jar
