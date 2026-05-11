@@ -28,8 +28,8 @@ public enum ErrorCode {
 
     SCRIPT_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "연습할 문장을 찾을 수 없습니다."),
 
-    VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, "V001", "음성을 인식하지 못했습니다. 다시 녹음해 주세요."),
-    VOICE_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "V002", "음성 분석 처리 중 서버 오류가 발생했습니다.");
+    VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, "V001", "분석할 음성을 인식하지 못했어요."),
+    VOICE_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "V002", "분석 중 문제가 발생했어요.");
 
     private final HttpStatus status;
     private final String code;
