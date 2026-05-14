@@ -128,9 +128,9 @@ public class PracticeService {
         else speedEval = "적당해요";
 
         String overallEval;
-        if (accuracy >= 85.0 && speedEval.equals("적당해요")) {
+        if (accuracy >= 95.0 && speedEval.equals("적당해요")) {
             overallEval = "Perfect";
-        } else if (accuracy >= 70.0) {
+        } else if ((accuracy >= 70.0 && speedEval.equals("적당해요")) || (accuracy >= 95.0 && !speedEval.equals("적당해요"))) {
             overallEval = "Good";
         } else {
             overallEval = "Try";
