@@ -38,10 +38,14 @@ public class AudioConverter {
             return convertedWavFile;
 
         } catch (Exception e) {
+            // 💡 실제 어떤 에러가 터졌는지 콘솔에 자세히 출력합니다.
+            e.printStackTrace();
+
             if (convertedWavFile != null && convertedWavFile.exists()) {
                 convertedWavFile.delete();
             }
-            throw new RuntimeException("오디오 포맷 변환 중 오류가 발생했습니다.");
+            // 프론트나 포스트맨 응답에도 원인을 포함시켜 줍니다.
+            throw new RuntimeException("오디오 포맷 변환 중 오류가 발생했습니다. 원인: " + e.getMessage(), e);
         } finally {
             if (tempOriginalFile != null && tempOriginalFile.exists()) {
                 tempOriginalFile.delete();

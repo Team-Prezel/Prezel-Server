@@ -123,8 +123,8 @@ public class PracticeService {
         double spm = durationSeconds > 0 ? (charCount / durationSeconds) * 60 : 0;
 
         String speedEval;
-        if (spm < 200) speedEval = "느려요";
-        else if (spm > 400) speedEval = "빨라요";
+        if (spm <= 210) speedEval = "느려요";
+        else if (spm >= 260) speedEval = "빨라요";
         else speedEval = "적당해요";
 
         String overallEval;

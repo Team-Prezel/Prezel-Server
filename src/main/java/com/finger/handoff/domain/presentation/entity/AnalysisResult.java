@@ -1,9 +1,6 @@
 package com.finger.handoff.domain.presentation.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,22 +16,26 @@ public class AnalysisResult {
     @OneToOne(fetch = FetchType.LAZY)
     private Presentation presentation;
 
-    private int durationSeconds; //초가 아니라 시분초로 바꾸기
+    @Column(nullable = true)
+    private Integer durationSeconds; //초가 아니라 시분초로 바꾸기
 
     private String speedEval;
-    private double spm;
+    private Integer spm;
 
-    private double accuracyScore;
-    private double scriptMatchRate;
+    @Column(nullable = true)
+    private Double accuracyScore;
+
+    @Column(nullable = true)
+    private Double scriptMatchRate;
 
     //요약 피드백 추가
-    //성장 그래프 추가
-    //대본 분석 추가
-    //예상 질문 추가
+    //성장 그래프 추가 (nullable = true)
+    //대본 분석 추가 (nullable = true)
+    //예상 질문 추가 (nullable = true)
 
     @Builder
     public AnalysisResult(Presentation presentation, int durationSeconds,
-                          String speedEval, double spm,
+                          String speedEval, int spm,
                           double accuracyScore, double scriptMatchRate) {
         this.presentation = presentation;
         this.durationSeconds = durationSeconds;
