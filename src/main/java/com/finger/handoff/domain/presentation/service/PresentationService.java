@@ -13,6 +13,7 @@ public class PresentationService {
 
     private final AudioConverter audioConverter;
     private final AzureSpeechService azureSpeechService;
+    private final GeminiService geminiService;
 
     // 분석 후 DTO 반환, DB 저장은 하지 않음
     public PresentationDTO.AnalysisResponse analyzePresentation(PresentationDTO.PresentationRequest request) {
@@ -25,8 +26,8 @@ public class PresentationService {
             AzureSpeechService.AzureAnalysisDto azureResult =
                     azureSpeechService.analyzePronunciation(wavFile.getAbsolutePath(), request.getScript());
 
-            // 3. 요약 피드백 생성 (현재는 임시 문자열, 추후 LLM 연동 예정)
-            String summaryFeedback = "전달은 안정적으로 잘 되고 있어요. 이제 속도와 리듬을 조금만 다듬어볼게요. 문장 흐름이 더 좋아지려면 문장 속에 키워드가 3개 이상 들어가지 않는 게 좋아요. 지금처럼만 하면 전달력은 계속 좋아질 수 있어요.";
+            // 3. 🔥 Gemini API를 호출하여 요약 피드백 생성
+            String summaryFeedback = geminiService.generateSummaryFeedback(azureResult);
 
             // 4. 응답 DTO 구성 및 반환
             return PresentationDTO.AnalysisResponse.builder()
