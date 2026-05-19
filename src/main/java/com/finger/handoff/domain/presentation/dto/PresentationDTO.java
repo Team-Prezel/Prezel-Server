@@ -7,7 +7,7 @@ import com.finger.handoff.domain.presentation.entity.PresentationType;
 import lombok.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class PresentationDTO {
@@ -19,12 +19,11 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class PresentationRequest {
         private String name;
-        private LocalDate date;
+        private LocalDateTime date;
         private PresentationType type;
         private PresentationPurpose purpose;
         private PresentationStyle style;
         private PresentationAudience audience;
-
         private String script;
         private MultipartFile audio;
     }
@@ -33,23 +32,34 @@ public class PresentationDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class AnalysisResponse {
-        // 기본 정보 (대본 유무 무관하게 공통)
+    public static class SummaryResponse {
+        private Long presentationId;
         private String name;
         private PresentationType type;
         private PresentationPurpose purpose;
         private PresentationStyle style;
         private PresentationAudience audience;
 
-        // 공통 분석 지표
+        private LocalDateTime analysisDate;
         private Integer durationSeconds;
+        private String formattedDuration;
         private Integer spm;
         private String speedEval;
         private String summaryFeedback;
 
-        // 대본이 있는 경우에만 반환되는 지표 (대본이 없으면 null)
         private Double accuracyScore;
         private Double scriptMatchRate;
+
+        private GrowthGraphResponse growthGraph;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WordDetailResponse {
+        private Long presentationId;
+        private String audioUrl;
         private List<WordAnalysisDetail> wordDetails;
     }
 
@@ -59,14 +69,20 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class WordAnalysisDetail {
         private String word;
-
-        // 상태 코드: Stutter, Insertion, Omission, Mispronunciation, Excellent, Good
         private String status;
-
-        // AzureSpeechService2에서 사용했던 상세 설명
         private String description;
-
-        // 단어별 정확도 점수
         private Double accuracy;
+        private Long startTimeMs;
+        private Long endTimeMs;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class GrowthGraphResponse {
+        private List<String> attempts;
+        private List<Double> accuracyScores;
+        private List<Double> scriptMatchRates;
     }
 }

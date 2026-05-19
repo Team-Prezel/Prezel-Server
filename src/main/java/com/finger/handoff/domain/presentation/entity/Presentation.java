@@ -14,6 +14,7 @@ import java.time.LocalDate;
 public class Presentation {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
