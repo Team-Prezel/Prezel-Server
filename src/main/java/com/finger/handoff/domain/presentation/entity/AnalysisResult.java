@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -33,14 +34,26 @@ public class AnalysisResult {
     @Column(columnDefinition = "TEXT")
     private String summaryFeedback;
 
-    //성장 그래프 추가 (nullable = true)
-    //대본 분석 추가 (nullable = true)
-    //예상 질문 추가 (nullable = true)
+    @Column(length = 1000)
+    private String audioUrl;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String wordDetailsJson;
+
+    // 🔥 추가됨: 분석일 처리를 위한 필드
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+    }
 
     @Builder
-    public AnalysisResult(Presentation presentation, int durationSeconds,
-                          String speedEval, int spm,
-                          double accuracyScore, double scriptMatchRate, String summaryFeedback) {
+    public AnalysisResult(Presentation presentation, Integer durationSeconds,
+                          String speedEval, Integer spm, Double accuracyScore,
+                          Double scriptMatchRate, String summaryFeedback,
+                          String audioUrl, String wordDetailsJson) {
         this.presentation = presentation;
         this.durationSeconds = durationSeconds;
         this.speedEval = speedEval;
@@ -48,5 +61,7 @@ public class AnalysisResult {
         this.accuracyScore = accuracyScore;
         this.scriptMatchRate = scriptMatchRate;
         this.summaryFeedback = summaryFeedback;
+        this.audioUrl = audioUrl;
+        this.wordDetailsJson = wordDetailsJson;
     }
 }
