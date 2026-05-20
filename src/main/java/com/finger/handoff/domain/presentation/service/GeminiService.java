@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,7 +22,6 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GeminiService {
 
     @Value("${gemini.api.key}")
@@ -29,7 +31,16 @@ public class GeminiService {
     private String geminiApiUrl;
 
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public GeminiService(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);  // 연결 대기 5초
+        factory.setReadTimeout(30000);    // 응답 대기 30초
+        this.restTemplate = new RestTemplate(factory);
+    }
 
     @Getter
     @Builder
@@ -65,6 +76,11 @@ public class GeminiService {
                 "날카로운 면접관의 입장에서, 발표가 끝난 뒤 나올 수 있는 '핵심 예상 질문'과 '모범 답변' 3개 세트를 작성해. 원본 대본이 짧더라도 응용해서 억지로라도 3개를 만들어내.";
     }
 
+    @Retryable(
+            value = { Exception.class }, // 모든 예외에 대해
+            maxAttempts = 3,             // 최대 3번 시도
+            backoff = @Backoff(delay = 2000) // 실패 시 2초 대기 후 재시도
+    )
     public GeminiAllInOneResponse analyzeAll(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript) {
         String prompt = buildAllInOnePrompt(azureResult, originalScript);
 
