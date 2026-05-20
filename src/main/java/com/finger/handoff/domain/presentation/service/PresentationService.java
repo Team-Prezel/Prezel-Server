@@ -109,6 +109,7 @@ public class PresentationService {
 
             if (presentation.getScript() != null && !presentation.getScript().trim().isEmpty()) {
                 expectedQuestions = new ArrayList<>();
+            }
 
             try {
                 if (expectedQuestionsJson != null && !expectedQuestionsJson.equals("[]") && !expectedQuestionsJson.trim().isEmpty()) {
