@@ -105,11 +105,8 @@ public class PresentationService {
             presentation.getAnalysisResults().add(analysisResult);
             analysisResult = analysisResultRepository.saveAndFlush(analysisResult);
 
-            List<PresentationDTO.ExpectedQuestionData> expectedQuestions = null;
-
-            if (presentation.getScript() != null && !presentation.getScript().trim().isEmpty()) {
-                expectedQuestions = new ArrayList<>();
-            }
+            List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
+            boolean hasScript = presentation.getScript() != null && !presentation.getScript().trim().isEmpty();
 
             try {
                 if (expectedQuestionsJson != null && !expectedQuestionsJson.equals("[]") && !expectedQuestionsJson.trim().isEmpty()) {
@@ -120,14 +117,15 @@ public class PresentationService {
                 log.error("예상 질문 JSON 파싱 에러: {}", expectedQuestionsJson, e);
             }
 
-            if (expectedQuestions == null || expectedQuestions.isEmpty()) {
-                if (expectedQuestions == null) {
-                    expectedQuestions = new ArrayList<>(); // null일 경우 리스트 새로 생성
+            if (hasScript) {
+                if (expectedQuestions.isEmpty()) {
+                    expectedQuestions.add(PresentationDTO.ExpectedQuestionData.builder()
+                            .question("예상 질문을 생성하는 데 일시적인 지연이 발생했습니다.")
+                            .answer("AI 서버 혼잡으로 응답을 받지 못했습니다. 잠시 후 재녹음을 통해 다시 시도해 주세요.")
+                            .build());
                 }
-                expectedQuestions.add(PresentationDTO.ExpectedQuestionData.builder()
-                        .question("예상 질문을 생성하는 데 일시적인 지연이 발생했습니다.")
-                        .answer("AI 서버 혼잡으로 응답을 받지 못했습니다. 잠시 후 재녹음을 통해 다시 시도해 주세요.")
-                        .build());
+            } else {
+                expectedQuestions = new ArrayList<>(); // 확실한 빈 리스트 처리
             }
 
             List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
