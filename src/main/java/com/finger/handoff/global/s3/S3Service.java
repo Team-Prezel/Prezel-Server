@@ -7,4 +7,8 @@ public interface S3Service {
     String uploadProfileImage(MultipartFile file);
 
     void deleteProfileImage(String imageUrl);
+
+    String uploadAudioFile(MultipartFile file);
+
+    void deleteAudioFile(String fileUrl);
 }
