@@ -12,4 +12,6 @@ public interface AnalysisResultRepository extends JpaRepository<AnalysisResult, 
 
     @Query("SELECT a FROM AnalysisResult a JOIN a.presentation p WHERE p.user = :user AND p.title = :title ORDER BY a.createdAt ASC")
     List<AnalysisResult> findHistoryByUserAndTitle(@Param("user") User user, @Param("title") String title);
+
+    List<AnalysisResult> findByPresentationIdOrderByCreatedAtAsc(Long presentationId);
 }

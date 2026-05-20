@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 
@@ -26,16 +27,11 @@ public class PresentationController {
             @ModelAttribute PresentationDTO.PresentationRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        // 1. DTO의 날짜 타입 처리 (요청된 날짜의 형변환)
-        LocalDate presentationDate = null;
-        if (request.getDate() != null) {
-            presentationDate = request.getDate().toLocalDate();
-        }
+        LocalDate presentationDate = request.getDate() != null ? request.getDate().toLocalDate() : null;
 
-        // 2. AuthenticationPrincipal을 통해 가져온 User 정보로 Presentation 엔티티 실제 생성
         Presentation presentation = Presentation.builder()
-                .user(customUserDetails.getUser()) // CustomUserDetails 내장 메서드 활용
-                .title(request.getName())          // DTO: name -> Entity: title
+                .user(customUserDetails.getUser())
+                .title(request.getName())
                 .presentationDate(presentationDate)
                 .type(request.getType())
                 .purpose(request.getPurpose())
@@ -44,21 +40,25 @@ public class PresentationController {
                 .script(request.getScript())
                 .build();
 
-        // 3. DB에 먼저 저장하여 ID(PK) 발급
         Presentation savedPresentation = presentationRepository.save(presentation);
 
-        // 4. 저장된 엔티티를 서비스로 넘겨서 분석 로직 진행
-        PresentationDTO.SummaryResponse response = presentationService.analyzePresentation(request, savedPresentation);
+        PresentationDTO.SummaryResponse response = presentationService.analyzePresentation(savedPresentation, request.getAudio());
+        return ApiResponse.success(response);
+    }
 
+    @PostMapping(value = "/{presentationId}/re-analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<PresentationDTO.SummaryResponse> reAnalyzeRecording(
+            @PathVariable Long presentationId,
+            @RequestParam("audio") MultipartFile audio,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        PresentationDTO.SummaryResponse response = presentationService.reAnalyzePresentation(presentationId, audio, customUserDetails.getUser());
         return ApiResponse.success(response);
     }
 
     @GetMapping("/analyze/{analysisResultId}/words")
-    public ApiResponse<PresentationDTO.WordDetailResponse> getWordDetails(
-            @PathVariable Long analysisResultId) {
-
-        PresentationDTO.WordDetailResponse response = presentationService.getWordDetails(analysisResultId);
-        return ApiResponse.success(response);
+    public ApiResponse<PresentationDTO.WordDetailResponse> getWordDetails(@PathVariable Long analysisResultId) {
+        return ApiResponse.success(presentationService.getWordDetails(analysisResultId));
     }
 
     @DeleteMapping("/analyze/{analysisResultId}")
@@ -66,5 +66,4 @@ public class PresentationController {
         presentationService.deleteAnalysisResult(analysisResultId);
         return ApiResponse.success();
     }
-
 }

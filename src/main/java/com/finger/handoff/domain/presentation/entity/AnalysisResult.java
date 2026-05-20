@@ -15,7 +15,7 @@ public class AnalysisResult {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "presentation_id")
     private Presentation presentation;
 
@@ -40,7 +40,6 @@ public class AnalysisResult {
     @Column(columnDefinition = "LONGTEXT")
     private String wordDetailsJson;
 
-    // 🔥 추가됨: 분석일 처리를 위한 필드
     @Column(updatable = false)
     private LocalDateTime createdAt;
 

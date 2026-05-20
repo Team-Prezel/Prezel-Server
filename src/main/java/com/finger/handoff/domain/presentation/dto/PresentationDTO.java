@@ -34,6 +34,7 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class SummaryResponse {
         private Long presentationId;
+        private Long analysisResultId;
         private String name;
         private PresentationType type;
         private PresentationPurpose purpose;

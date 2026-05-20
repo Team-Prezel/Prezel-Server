@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -36,11 +38,11 @@ public class Presentation {
     @Enumerated(EnumType.STRING)
     private PresentationAudience audience;
 
+    @Column(columnDefinition = "TEXT")
     private String script;
 
-    @OneToOne(mappedBy = "presentation", cascade = CascadeType.ALL, orphanRemoval = true)// 일단 일대일 연결(추구 변경될듯)
-    private AnalysisResult analysisResult;
-
+    @OneToMany(mappedBy = "presentation", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AnalysisResult> analysisResults = new ArrayList<>();
 
     @Builder
     public Presentation(User user, String title, LocalDate presentationDate,
@@ -54,9 +56,5 @@ public class Presentation {
         this.style = style;
         this.audience = audience;
         this.script = script;
-    }
-
-    public void setAnalysisResult(AnalysisResult analysisResult) {
-        this.analysisResult = analysisResult;
     }
 }
