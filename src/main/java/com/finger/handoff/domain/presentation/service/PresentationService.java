@@ -105,7 +105,11 @@ public class PresentationService {
             presentation.getAnalysisResults().add(analysisResult);
             analysisResult = analysisResultRepository.saveAndFlush(analysisResult);
 
-            List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
+            List<PresentationDTO.ExpectedQuestionData> expectedQuestions = null;
+
+            if (presentation.getScript() != null && !presentation.getScript().trim().isEmpty()) {
+                expectedQuestions = new ArrayList<>();
+
             try {
                 if (expectedQuestionsJson != null && !expectedQuestionsJson.equals("[]") && !expectedQuestionsJson.trim().isEmpty()) {
                     expectedQuestions = objectMapper.readValue(expectedQuestionsJson,
