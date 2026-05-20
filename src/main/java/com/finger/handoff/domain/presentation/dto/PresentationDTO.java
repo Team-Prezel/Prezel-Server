@@ -1,5 +1,6 @@
 package com.finger.handoff.domain.presentation.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.finger.handoff.domain.presentation.entity.PresentationAudience;
 import com.finger.handoff.domain.presentation.entity.PresentationPurpose;
 import com.finger.handoff.domain.presentation.entity.PresentationStyle;
@@ -56,6 +57,17 @@ public class PresentationDTO {
         private Integer totalErrorCount;
 
         private List<GrowthData> growthGraph;
+        private List<ExpectedQuestionData> expectedQuestions;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ExpectedQuestionData {
+        private String question;
+        private String answer;
     }
 
     @Getter
