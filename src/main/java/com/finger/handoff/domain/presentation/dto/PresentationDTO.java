@@ -51,6 +51,10 @@ public class PresentationDTO {
         private Double accuracyScore;
         private Double scriptMatchRate;
 
+        private Integer spellErrorCount;
+        private Integer grammarErrorCount;
+        private Integer totalErrorCount;
+
         private List<GrowthData> growthGraph;
     }
 
@@ -75,6 +79,29 @@ public class PresentationDTO {
         private Double accuracy;
         private Long startTimeMs;
         private Long endTimeMs;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ScriptDetailResponse {
+        private Long presentationId;
+        private String audioUrl;
+        private List<ScriptAnalysisDetail> scriptDetails;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ScriptAnalysisDetail {
+        private String errorType; // "SPELLING" (맞춤법) 또는 "GRAMMAR" (주술호응)
+        private String originalText; // 원본 텍스트
+        private String correctedText; // 교정된 텍스트
+        private String reason; // 교정 이유
+        private Long startTimeMs; // 시작 시간
+        private Long endTimeMs; // 종료 시간
     }
 
     @Getter

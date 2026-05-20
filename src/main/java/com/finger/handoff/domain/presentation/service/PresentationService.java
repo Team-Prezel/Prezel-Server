@@ -73,6 +73,12 @@ public class PresentationService {
                 wordDetailsJson = objectMapper.writeValueAsString(azureResult.getWordDetails());
             }
 
+            // 🔥 TODO: 추후 Gemini AI를 통해 맞춤법/주술호응 검사 결과를 받아와서 파싱할 부분
+            // 현재는 프론트엔드 API 테스트를 위해 기본값 세팅
+            int spellErrorCount = 0;
+            int grammarErrorCount = 0;
+            String scriptDetailsJson = "[]";
+
             AnalysisResult analysisResult = AnalysisResult.builder()
                     .presentation(presentation)
                     .durationSeconds(azureResult.getDurationSeconds())
@@ -83,6 +89,9 @@ public class PresentationService {
                     .summaryFeedback(summaryFeedback)
                     .audioUrl(audioUrl)
                     .wordDetailsJson(wordDetailsJson)
+                    .spellErrorCount(spellErrorCount)       // 🔥 추가됨
+                    .grammarErrorCount(grammarErrorCount)   // 🔥 추가됨
+                    .scriptDetailsJson(scriptDetailsJson)   // 🔥 추가됨
                     .build();
 
             presentation.getAnalysisResults().add(analysisResult);
@@ -107,6 +116,8 @@ public class PresentationService {
             int duration = azureResult.getDurationSeconds() != null ? azureResult.getDurationSeconds() : 0;
             String formattedDuration = String.format("%02d:%02d", duration / 60, duration % 60);
 
+            int totalError = spellErrorCount + grammarErrorCount;
+
             return PresentationDTO.SummaryResponse.builder()
                     .presentationId(presentation.getId())
                     .analysisResultId(analysisResult.getId())
@@ -123,6 +134,9 @@ public class PresentationService {
                     .summaryFeedback(summaryFeedback)
                     .accuracyScore(azureResult.getAccuracyScore())
                     .scriptMatchRate(azureResult.getScriptMatchRate())
+                    .spellErrorCount(spellErrorCount)     // 🔥 탑재
+                    .grammarErrorCount(grammarErrorCount) // 🔥 탑재
+                    .totalErrorCount(totalError)          // 🔥 탑재
                     .growthGraph(growthGraph)
                     .build();
 
@@ -155,6 +169,29 @@ public class PresentationService {
                 .presentationId(result.getPresentation().getId())
                 .audioUrl(result.getAudioUrl())
                 .wordDetails(wordDetails)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PresentationDTO.ScriptDetailResponse getScriptDetails(Long analysisResultId) {
+        AnalysisResult result = analysisResultRepository.findById(analysisResultId)
+                .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다. id: " + analysisResultId));
+
+        List<PresentationDTO.ScriptAnalysisDetail> scriptDetails = null;
+        try {
+            if (result.getScriptDetailsJson() != null && !result.getScriptDetailsJson().equals("[]")) {
+                scriptDetails = objectMapper.readValue(result.getScriptDetailsJson(),
+                        new TypeReference<List<PresentationDTO.ScriptAnalysisDetail>>() {});
+            }
+        } catch (JsonProcessingException e) {
+            log.error("대본 데이터 파싱 중 오류 발생", e);
+            throw new RuntimeException("대본 데이터 파싱 중 오류 발생", e);
+        }
+
+        return PresentationDTO.ScriptDetailResponse.builder()
+                .presentationId(result.getPresentation().getId())
+                .audioUrl(result.getAudioUrl())
+                .scriptDetails(scriptDetails)
                 .build();
     }
 

@@ -61,6 +61,11 @@ public class PresentationController {
         return ApiResponse.success(presentationService.getWordDetails(analysisResultId));
     }
 
+    @GetMapping("/analyze/{analysisResultId}/scripts")
+    public ApiResponse<PresentationDTO.ScriptDetailResponse> getScriptDetails(@PathVariable Long analysisResultId) {
+        return ApiResponse.success(presentationService.getScriptDetails(analysisResultId));
+    }
+
     @DeleteMapping("/analyze/{analysisResultId}")
     public ApiResponse<Void> cancelAnalysis(@PathVariable Long analysisResultId) {
         presentationService.deleteAnalysisResult(analysisResultId);
