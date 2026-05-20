@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -65,9 +66,29 @@ public class PresentationService {
                     .wordDetailsJson(wordDetailsJson) // 🔥 단어 내역 저장
                     .build();
 
-            analysisResult = analysisResultRepository.save(analysisResult);
+            // 방금 분석한 결과를 DB에 강제로 밀어넣어야 이어지는 이력 조회 쿼리에서 가져올 수 있음
+            analysisResult = analysisResultRepository.saveAndFlush(analysisResult);
 
-            // 🔥 추가됨: 분석일(createdAt)이 영속화 지연으로 null일 경우를 대비한 방어 로직
+            // 6.성장 그래프 데이터 추출 (동일 유저 + 동일 발표 제목을 가진 모든 결과를 가져옴)
+            List<AnalysisResult> historyResults = analysisResultRepository.findHistoryByUserAndTitle(
+                    savedPresentation.getUser(), savedPresentation.getTitle()
+            );
+
+            // 7. 프론트엔드가 요청한 형태로 리스트 가공 (attempt 카운트)
+            List<PresentationDTO.GrowthData> growthGraph = new ArrayList<>();
+            int attemptCounter = 1;
+            for (AnalysisResult history : historyResults) {
+                Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+                Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+
+                growthGraph.add(PresentationDTO.GrowthData.builder()
+                        .attempt(attemptCounter++)
+                        .accuracyScore(accuracy)
+                        .scriptMatchRate(scriptMatch)
+                        .build());
+            }
+
+            // 분석일(createdAt)이 영속화 지연으로 null일 경우를 대비한 방어 로직
             LocalDateTime analysisDate = analysisResult.getCreatedAt() != null ?
                     analysisResult.getCreatedAt() : LocalDateTime.now();
 
@@ -93,7 +114,7 @@ public class PresentationService {
                     .summaryFeedback(summaryFeedback)
                     .accuracyScore(azureResult.getAccuracyScore())
                     .scriptMatchRate(azureResult.getScriptMatchRate())
-                    // .growthGraph(getGrowthGraphData(savedPresentation.getId())) // 이전 회차 로직 연결 시 사용
+                    .growthGraph(growthGraph)
                     .build();
 
         } catch (Exception e) {

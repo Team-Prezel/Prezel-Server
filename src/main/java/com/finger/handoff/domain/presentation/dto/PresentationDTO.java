@@ -50,7 +50,7 @@ public class PresentationDTO {
         private Double accuracyScore;
         private Double scriptMatchRate;
 
-        private GrowthGraphResponse growthGraph;
+        private List<GrowthData> growthGraph;
     }
 
     @Getter
@@ -80,9 +80,9 @@ public class PresentationDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class GrowthGraphResponse {
-        private List<String> attempts;
-        private List<Double> accuracyScores;
-        private List<Double> scriptMatchRates;
+    public static class GrowthData {
+        private Integer attempt;
+        private Double accuracyScore;
+        private Double scriptMatchRate;
     }
 }
