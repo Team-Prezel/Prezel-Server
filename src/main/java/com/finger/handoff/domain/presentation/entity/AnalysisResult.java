@@ -49,6 +49,9 @@ public class AnalysisResult {
     @Column(columnDefinition = "LONGTEXT")
     private String scriptDetailsJson;
 
+    @Column(columnDefinition = "LONGTEXT")
+    private String expectedQuestionsJson;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,7 +65,8 @@ public class AnalysisResult {
                           String speedEval, Integer spm, Double accuracyScore,
                           Double scriptMatchRate, String summaryFeedback,
                           String audioUrl, String wordDetailsJson,
-                          Integer spellErrorCount, Integer grammarErrorCount, String scriptDetailsJson) { // 생성자 추가
+                          Integer spellErrorCount, Integer grammarErrorCount,
+                          String scriptDetailsJson, String expectedQuestionsJson) {
         this.presentation = presentation;
         this.durationSeconds = durationSeconds;
         this.speedEval = speedEval;
@@ -75,5 +79,6 @@ public class AnalysisResult {
         this.spellErrorCount = spellErrorCount;
         this.grammarErrorCount = grammarErrorCount;
         this.scriptDetailsJson = scriptDetailsJson;
+        this.expectedQuestionsJson = expectedQuestionsJson;
     }
 }
