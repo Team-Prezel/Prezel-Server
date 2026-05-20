@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -54,25 +53,16 @@ public class GeminiService {
         private String expectedQuestionsJson;
     }
 
-    /**
-     * 1. 요약 피드백 생성 프롬프트
-     */
     private String getSummaryFeedbackInstruction() {
         return "[작업 1: 요약 피드백 작성]\n" +
                 "장점은 칭찬해주고, 개선할 점(속도, 발음, 더듬음 등)은 부드럽게 조언해주는 따뜻한 스피치 코치의 말투로 3~4문장 분량의 '종합 요약 피드백'을 작성해.";
     }
 
-    /**
-     * 2. 대본 맞춤법/주술호응 검사 프롬프트
-     */
     private String getScriptErrorInstruction() {
         return "[작업 2: 대본 오류 분석]\n" +
                 "깐깐한 교정기처럼 원본 대본 내용에 있는 '맞춤법(SPELLING)' 및 '주술 호응(GRAMMAR)' 오류를 모두 찾아내.";
     }
 
-    /**
-     * 3. 예상 질문 3개 추출 프롬프트
-     */
     private String getExpectedQuestionsInstruction() {
         return "[작업 3: 예상 질문 및 모범 답변 생성]\n" +
                 "날카로운 면접관의 입장에서, 발표가 끝난 뒤 나올 수 있는 '핵심 예상 질문'과 '모범 답변' 3개 세트를 작성해. 원본 대본이 짧더라도 응용해서 억지로라도 3개를 만들어내.";
@@ -148,6 +138,8 @@ public class GeminiService {
 
     private String buildAllInOnePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript) {
         StringBuilder sb = new StringBuilder();
+        boolean hasScript = originalScript != null && !originalScript.trim().isEmpty();
+
         sb.append("다음 제공되는 사용자의 [발표 음성 데이터]와 [원본 대본]을 분석해줘.\n\n");
 
         sb.append("[발표 음성 데이터]\n");
@@ -163,31 +155,42 @@ public class GeminiService {
             sb.append("- 불필요한 추임새 횟수: ").append(insertionCount).append("회\n");
         }
 
-        sb.append("\n[원본 대본]\n").append(originalScript).append("\n\n");
-
-        sb.append("위 데이터를 바탕으로 다음 3가지 요청 사항을 순서대로 수행해.\n");
-        sb.append(getSummaryFeedbackInstruction()).append("\n\n");
-        sb.append(getScriptErrorInstruction()).append("\n\n");
-        sb.append(getExpectedQuestionsInstruction()).append("\n\n");
+        if (hasScript) {
+            sb.append("\n[원본 대본]\n").append(originalScript).append("\n\n");
+            sb.append("위 데이터를 바탕으로 다음 3가지 요청 사항을 순서대로 수행해.\n");
+            sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+            sb.append(getScriptErrorInstruction()).append("\n\n");
+            sb.append(getExpectedQuestionsInstruction()).append("\n\n");
+        } else {
+            sb.append("\n[원본 대본]\n").append("없음(사용자가 대본을 제공하지 않음)\n\n");
+            sb.append("위 데이터를 바탕으로 다음 1가지 요청 사항을 수행해.\n");
+            sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+        }
 
         sb.append("결과는 반드시 아래의 단일 JSON 객체(Object) 형식으로만 응답해. 절대 ```json 이나 추가 설명을 덧붙이지 마.\n");
         sb.append("{\n");
-        sb.append("  \"summaryFeedback\": \"요약 피드백 텍스트\",\n");
-        sb.append("  \"scriptErrors\": [\n");
-        sb.append("    {\n");
-        sb.append("      \"errorType\": \"SPELLING\",\n");
-        sb.append("      \"sentence\": \"틀린 부분이 포함된 전체 원본 문장\",\n");
-        sb.append("      \"originalText\": \"틀린 부분\",\n");
-        sb.append("      \"correctedText\": \"교정된 텍스트\",\n");
-        sb.append("      \"reason\": \"교정 이유\"\n");
-        sb.append("    }\n");
-        sb.append("  ],\n");
-        sb.append("  \"expectedQuestions\": [\n");
-        sb.append("    {\n");
-        sb.append("      \"question\": \"예상 질문 1\",\n");
-        sb.append("      \"answer\": \"모범 답변 1\"\n");
-        sb.append("    }\n");
-        sb.append("  ]\n");
+        sb.append("  \"summaryFeedback\": \"요약 피드백 텍스트\"");
+
+        if (hasScript) {
+            sb.append(",\n");
+            sb.append("  \"scriptErrors\": [\n");
+            sb.append("    {\n");
+            sb.append("      \"errorType\": \"SPELLING\",\n");
+            sb.append("      \"sentence\": \"틀린 부분이 포함된 전체 원본 문장\",\n");
+            sb.append("      \"originalText\": \"틀린 부분\",\n");
+            sb.append("      \"correctedText\": \"교정된 텍스트\",\n");
+            sb.append("      \"reason\": \"교정 이유\"\n");
+            sb.append("    }\n");
+            sb.append("  ],\n");
+            sb.append("  \"expectedQuestions\": [\n");
+            sb.append("    {\n");
+            sb.append("      \"question\": \"예상 질문 1\",\n");
+            sb.append("      \"answer\": \"모범 답변 1\"\n");
+            sb.append("    }\n");
+            sb.append("  ]\n");
+        } else {
+            sb.append("\n");
+        }
         sb.append("}");
 
         return sb.toString();
