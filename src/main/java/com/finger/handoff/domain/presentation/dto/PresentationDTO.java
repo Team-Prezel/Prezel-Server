@@ -88,6 +88,7 @@ public class PresentationDTO {
     public static class ScriptDetailResponse {
         private Long presentationId;
         private String audioUrl;
+        private String originalScript;
         private List<ScriptAnalysisDetail> scriptDetails;
     }
 
@@ -96,12 +97,11 @@ public class PresentationDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ScriptAnalysisDetail {
-        private String errorType; // "SPELLING" (맞춤법) 또는 "GRAMMAR" (주술호응)
-        private String originalText; // 원본 텍스트
+        private String errorType;     // "SPELLING" 또는 "GRAMMAR"
+        private String sentence;      // 매핑을 위한 오류가 포함된 전체 문장
+        private String originalText;  // 원본 텍스트
         private String correctedText; // 교정된 텍스트
-        private String reason; // 교정 이유
-        private Long startTimeMs; // 시작 시간
-        private Long endTimeMs; // 종료 시간
+        private String reason;        // 교정 이유
     }
 
     @Getter

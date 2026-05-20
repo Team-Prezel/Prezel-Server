@@ -2,6 +2,8 @@ package com.finger.handoff.domain.presentation.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,44 +29,96 @@ public class GeminiService {
     private String geminiApiUrl;
 
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate = new RestTemplate(); // 간단한 호출을 위해 직접 생성
+    private final RestTemplate restTemplate = new RestTemplate();
 
+    @Getter
+    @Builder
+    public static class ScriptErrorResult {
+        private int spellErrorCount;
+        private int grammarErrorCount;
+        private String scriptDetailsJson;
+    }
+
+    // 1️⃣ 기존 요약 피드백 생성 로직 (유지)
     public String generateSummaryFeedback(AzureSpeechService.AzureAnalysisDto azureResult) {
-        // 1. 프롬프트 생성 (Azure 분석 데이터를 문장으로 풀어서 전달)
         String prompt = buildPrompt(azureResult);
-
-        // 2. Gemini API 요청 본문(Body) 구성
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(
-                Map.of("parts", List.of(
-                        Map.of("text", prompt)
-                ))
-        ));
+        requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
 
-        // 3. HTTP 헤더 설정
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            // 4. API 호출
             String url = geminiApiUrl + "?key=" + geminiApiKey;
             String responseStr = restTemplate.postForObject(url, entity, String.class);
 
-            // 5. JSON 응답 파싱 및 피드백 텍스트 추출
             JsonNode rootNode = objectMapper.readTree(responseStr);
             return rootNode.path("candidates").get(0)
                     .path("content").path("parts").get(0)
                     .path("text").asText();
 
         } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류 발생: ", e);
-            return "현재 AI 피드백을 생성할 수 없습니다. 잠시 후 다시 시도해주세요."; // 장애 발생 시 기본 메시지
+            log.error("Gemini 피드백 호출 중 오류 발생: ", e);
+            return "현재 AI 서버 혼잡으로 피드백을 생성할 수 없습니다. 잠시 후 다시 시도해주세요.";
         }
     }
 
-    // 💡 AI에게 전달할 프롬프트(명령어)를 조합하는 메서드
+    public ScriptErrorResult analyzeScriptErrors(String originalScript) {
+        String prompt = buildScriptAnalysisPrompt(originalScript);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            String url = geminiApiUrl + "?key=" + geminiApiKey;
+            String responseStr = restTemplate.postForObject(url, entity, String.class);
+
+            JsonNode rootNode = objectMapper.readTree(responseStr);
+            String content = rootNode.path("candidates").get(0)
+                    .path("content").path("parts").get(0)
+                    .path("text").asText();
+
+            int startIndex = content.indexOf("[");
+            int endIndex = content.lastIndexOf("]");
+            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                content = content.substring(startIndex, endIndex + 1);
+            } else {
+                content = "[]";
+            }
+
+            JsonNode errorsNode = objectMapper.readTree(content);
+            int spellCount = 0;
+            int grammarCount = 0;
+
+            if (errorsNode.isArray()) {
+                for (JsonNode error : errorsNode) {
+                    String type = error.path("errorType").asText();
+                    if ("SPELLING".equalsIgnoreCase(type)) spellCount++;
+                    if ("GRAMMAR".equalsIgnoreCase(type)) grammarCount++;
+                }
+            }
+
+            return ScriptErrorResult.builder()
+                    .spellErrorCount(spellCount)
+                    .grammarErrorCount(grammarCount)
+                    .scriptDetailsJson(content)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Gemini 대본 분석 호출 중 오류 발생: ", e);
+            return ScriptErrorResult.builder()
+                    .spellErrorCount(0)
+                    .grammarErrorCount(0)
+                    .scriptDetailsJson("[]")
+                    .build();
+        }
+    }
+
     private String buildPrompt(AzureSpeechService.AzureAnalysisDto result) {
         StringBuilder sb = new StringBuilder();
         sb.append("너는 따뜻하고 전문적인 발표 스피치 코치야. 다음은 사용자의 발표 음성 분석 데이터야.\n");
@@ -76,7 +130,6 @@ public class GeminiService {
             sb.append("- 대본 일치율: ").append(String.format("%.1f", result.getScriptMatchRate())).append("%\n");
         }
 
-        // 나쁜 습관(더듬음, 추임새) 개수 카운트
         if (result.getWordDetails() != null) {
             long stutterCount = result.getWordDetails().stream().filter(w -> "Stutter".equals(w.getStatus())).count();
             long insertionCount = result.getWordDetails().stream().filter(w -> "Insertion".equals(w.getStatus())).count();
@@ -86,6 +139,29 @@ public class GeminiService {
 
         sb.append("\n이 데이터를 바탕으로 발표자에게 도움이 될 만한 '종합 요약 피드백'을 3~4문장 분량으로 자연스럽게 작성해줘.");
         sb.append("장점은 칭찬해주고, 개선할 점(속도, 발음, 더듬음 등)은 부드럽게 조언해주는 말투로 써줘. 마크다운 기호 없이 순수 텍스트로만 반환해.");
+
+        return sb.toString();
+    }
+
+    private String buildScriptAnalysisPrompt(String originalScript) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("너는 깐깐하고 전문적인 한국어 맞춤법 및 주술 호응 교정기야.\n");
+        sb.append("다음은 사용자가 작성한 '원본 대본(Script)'이야.\n\n");
+
+        sb.append("[원본 대본]\n").append(originalScript).append("\n\n");
+
+        sb.append("위 대본을 꼼꼼하게 분석해서 '맞춤법(SPELLING)' 오류와 '주술 호응(GRAMMAR)' 오류를 모두 찾아내.\n");
+        sb.append("결과는 반드시 아래 JSON 배열 형식으로만 응답해야 해. 마크다운 기호나 추가 설명은 절대 넣지 마.\n");
+        sb.append("[\n");
+        sb.append("  {\n");
+        sb.append("    \"errorType\": \"SPELLING\",\n");
+        sb.append("    \"sentence\": \"오늘 제가 맡은 발표할 주제는 인공지능입니다.\", // 🔥 오류가 발생한 '정확한 원본 문장 전체' (프론트에서 위치 찾기용)\n");
+        sb.append("    \"originalText\": \"맡은 발표할\", // 틀린 부분\n");
+        sb.append("    \"correctedText\": \"발표할\", // 올바르게 교정된 텍스트\n");
+        sb.append("    \"reason\": \"'맡은'이라는 표현이 문맥상 불필요하므로 삭제하는 것이 자연스럽습니다.\"\n");
+        sb.append("  }\n");
+        sb.append("]\n");
+        sb.append("오류가 전혀 없다면 빈 배열 [] 을 반환해.");
 
         return sb.toString();
     }

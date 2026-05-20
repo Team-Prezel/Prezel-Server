@@ -73,11 +73,12 @@ public class PresentationService {
                 wordDetailsJson = objectMapper.writeValueAsString(azureResult.getWordDetails());
             }
 
-            // 🔥 TODO: 추후 Gemini AI를 통해 맞춤법/주술호응 검사 결과를 받아와서 파싱할 부분
-            // 현재는 프론트엔드 API 테스트를 위해 기본값 세팅
-            int spellErrorCount = 0;
-            int grammarErrorCount = 0;
-            String scriptDetailsJson = "[]";
+            GeminiService.ScriptErrorResult scriptErrorResult =
+                    geminiService.analyzeScriptErrors(presentation.getScript());
+
+            int spellErrorCount = scriptErrorResult.getSpellErrorCount();
+            int grammarErrorCount = scriptErrorResult.getGrammarErrorCount();
+            String scriptDetailsJson = scriptErrorResult.getScriptDetailsJson();
 
             AnalysisResult analysisResult = AnalysisResult.builder()
                     .presentation(presentation)
@@ -89,9 +90,9 @@ public class PresentationService {
                     .summaryFeedback(summaryFeedback)
                     .audioUrl(audioUrl)
                     .wordDetailsJson(wordDetailsJson)
-                    .spellErrorCount(spellErrorCount)       // 🔥 추가됨
-                    .grammarErrorCount(grammarErrorCount)   // 🔥 추가됨
-                    .scriptDetailsJson(scriptDetailsJson)   // 🔥 추가됨
+                    .spellErrorCount(spellErrorCount)
+                    .grammarErrorCount(grammarErrorCount)
+                    .scriptDetailsJson(scriptDetailsJson)
                     .build();
 
             presentation.getAnalysisResults().add(analysisResult);
@@ -134,9 +135,9 @@ public class PresentationService {
                     .summaryFeedback(summaryFeedback)
                     .accuracyScore(azureResult.getAccuracyScore())
                     .scriptMatchRate(azureResult.getScriptMatchRate())
-                    .spellErrorCount(spellErrorCount)     // 🔥 탑재
-                    .grammarErrorCount(grammarErrorCount) // 🔥 탑재
-                    .totalErrorCount(totalError)          // 🔥 탑재
+                    .spellErrorCount(spellErrorCount)
+                    .grammarErrorCount(grammarErrorCount)
+                    .totalErrorCount(totalError)
                     .growthGraph(growthGraph)
                     .build();
 
@@ -191,6 +192,7 @@ public class PresentationService {
         return PresentationDTO.ScriptDetailResponse.builder()
                 .presentationId(result.getPresentation().getId())
                 .audioUrl(result.getAudioUrl())
+                .originalScript(result.getPresentation().getScript()) // 🔥 프론트에서 전체 텍스트를 바로 쓸 수 있도록 추가
                 .scriptDetails(scriptDetails)
                 .build();
     }
