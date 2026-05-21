@@ -87,7 +87,7 @@ public class PresentationController {
             finalScript = request.getScript();
         }
 
-        LocalDate presentationDate = request.getDate() != null ? request.getDate().toLocalDate() : null;
+        LocalDate presentationDate = request.getDate();
 
         Presentation presentation = Presentation.builder()
                 .user(customUserDetails.getUser())
