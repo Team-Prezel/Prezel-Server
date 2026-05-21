@@ -18,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +70,6 @@ public class PresentationService {
                 aiResponse = geminiService.analyzeAll(azureResult, presentation.getScript());
             } catch (Exception e) {
                 log.error("AI 통합 분석 실패 (강제 방어 모드 발동): ", e);
-                // AI 서버 완전 다운 시 화면을 살리기 위한 기본값 주입
                 aiResponse = GeminiService.GeminiAllInOneResponse.builder()
                         .summaryFeedback("현재 AI 서버 혼잡으로 요약을 생성할 수 없습니다.")
                         .spellErrorCount(0)
@@ -125,7 +124,7 @@ public class PresentationService {
                             .build());
                 }
             } else {
-                expectedQuestions = new ArrayList<>(); // 확실한 빈 리스트 처리
+                expectedQuestions = new ArrayList<>();
             }
 
             List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
@@ -141,7 +140,8 @@ public class PresentationService {
                         .build());
             }
 
-            LocalDateTime analysisDate = analysisResult.getCreatedAt() != null ? analysisResult.getCreatedAt() : LocalDateTime.now();
+            LocalDate analysisDate = analysisResult.getCreatedAt() != null ? analysisResult.getCreatedAt().toLocalDate() : LocalDate.now();
+
             int duration = azureResult.getDurationSeconds() != null ? azureResult.getDurationSeconds() : 0;
             String formattedDuration = String.format("%02d:%02d", duration / 60, duration % 60);
             int totalErrorCount = spellErrorCount + grammarErrorCount;

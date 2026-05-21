@@ -8,7 +8,7 @@ import com.finger.handoff.domain.presentation.entity.PresentationType;
 import lombok.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 public class PresentationDTO {
@@ -20,12 +20,13 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class PresentationRequest {
         private String name;
-        private LocalDateTime date;
+        private LocalDate date;
         private PresentationType type;
         private PresentationPurpose purpose;
         private PresentationStyle style;
         private PresentationAudience audience;
         private String script;
+        private MultipartFile scriptFile;
         private MultipartFile audio;
     }
 
@@ -42,7 +43,7 @@ public class PresentationDTO {
         private PresentationStyle style;
         private PresentationAudience audience;
 
-        private LocalDateTime analysisDate;
+        private LocalDate analysisDate;
         private Integer durationSeconds;
         private String formattedDuration;
         private Integer spm;
