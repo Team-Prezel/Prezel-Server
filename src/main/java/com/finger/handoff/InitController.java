@@ -1,4 +1,5 @@
-package com.finger.handoff.domain.terms.controller;
+/*
+package com.finger.handoff;
 
 import com.finger.handoff.domain.terms.entity.Terms;
 import com.finger.handoff.domain.terms.repository.TermsRepository;
@@ -48,3 +49,4 @@ public class InitController {
         return ResponseEntity.ok("운영 DB 약관 데이터 세팅 완료");
     }
 }
+*/
