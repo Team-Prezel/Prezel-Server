@@ -26,6 +26,7 @@ public class PresentationDTO {
         private PresentationStyle style;
         private PresentationAudience audience;
         private String script;
+        private MultipartFile scriptFile;
         private MultipartFile audio;
     }
 

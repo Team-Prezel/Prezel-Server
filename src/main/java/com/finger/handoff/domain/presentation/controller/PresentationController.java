@@ -5,6 +5,8 @@ import com.finger.handoff.domain.presentation.entity.Presentation;
 import com.finger.handoff.domain.presentation.repository.PresentationRepository;
 import com.finger.handoff.domain.presentation.service.PresentationService;
 import com.finger.handoff.global.common.ApiResponse;
+import com.finger.handoff.global.error.exception.BusinessException;
+import com.finger.handoff.global.error.model.ErrorCode;
 import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,6 +20,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
 @Tag(name = "Presentation", description = "발표 분석 및 관리 API")
@@ -31,7 +35,7 @@ public class PresentationController {
 
     @Operation(
             summary = "발표 음성 및 대본 분석 시작",
-            description = "사용자가 업로드한 녹음 파일과 대본을 바탕으로 AI 분석을 수행합니다. 대본이 없는 경우 음성 파일만으로 분석이 진행됩니다."
+            description = "사용자가 업로드한 녹음 파일과 대본을 바탕으로 AI 분석을 수행합니다. 대본은 텍스트 파일(.txt)로 업로드하거나 직접 문자열로 입력할 수 있습니다. 대본이 없는 경우 음성 파일만으로 분석이 진행됩니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "발표 분석 성공"),
@@ -39,7 +43,8 @@ public class PresentationController {
                     mediaType = "application/json",
                     examples = {
                             @ExampleObject(name = "F002", description = "지원하지 않는 파일 형식", value = "{\"status\": 400, \"code\": \"F002\", \"message\": \"지원하지 않는 오디오 파일 형식입니다.\"}"),
-                            @ExampleObject(name = "V001", description = "음성 데이터 인식 실패", value = "{\"status\": 400, \"code\": \"V001\", \"message\": \"음성 인식(STT) 처리에 실패했습니다.\"}")
+                            @ExampleObject(name = "V001", description = "음성 데이터 인식 실패", value = "{\"status\": 400, \"code\": \"V001\", \"message\": \"음성 인식(STT) 처리에 실패했습니다.\"}"),
+                            @ExampleObject(name = "P001", description = "대본 입력 방식 중복", value = "{\"status\": 400, \"code\": \"P001\", \"message\": \"직접 입력한 대본과 대본 파일을 동시에 등록할 수 없습니다.\"}")
                     })),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 자격 증명 무효", content = @Content(
                     mediaType = "application/json",
@@ -52,12 +57,35 @@ public class PresentationController {
                     })),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "서버 내부 오류 (AI 엔진 에러 등)", content = @Content(
                     mediaType = "application/json",
-                    examples = @ExampleObject(name = "S001", description = "AI 엔진 분석 실패", value = "{\"status\": 500, \"code\": \"S001\", \"message\": \"AI 분석 서버와의 통신 중 오류가 발생했습니다.\"}")))
+                    examples = {
+                            @ExampleObject(name = "S001", description = "AI 엔진 분석 실패", value = "{\"status\": 500, \"code\": \"S001\", \"message\": \"AI 분석 서버와의 통신 중 오류가 발생했습니다.\"}"),
+                            @ExampleObject(name = "P002", description = "대본 파일 읽기 실패", value = "{\"status\": 500, \"code\": \"P002\", \"message\": \"대본 파일을 읽는 중 오류가 발생했습니다.\"}")
+                    }))
     })
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<PresentationDTO.SummaryResponse> analyzeRecording(
             @ModelAttribute PresentationDTO.PresentationRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        String finalScript = null;
+
+        boolean hasTextScript = request.getScript() != null && !request.getScript().trim().isEmpty();
+        boolean hasFileScript = request.getScriptFile() != null && !request.getScriptFile().isEmpty();
+
+        if (hasTextScript && hasFileScript) {
+            throw new BusinessException(ErrorCode.INVALID_SCRIPT_REQUEST);
+        }
+
+        if (hasFileScript) {
+            try {
+                finalScript = new String(request.getScriptFile().getBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new BusinessException(ErrorCode.SCRIPT_FILE_READ_FAILED);
+            }
+        }
+        else if (hasTextScript) {
+            finalScript = request.getScript();
+        }
 
         LocalDate presentationDate = request.getDate() != null ? request.getDate().toLocalDate() : null;
 
@@ -69,7 +97,7 @@ public class PresentationController {
                 .purpose(request.getPurpose())
                 .style(request.getStyle())
                 .audience(request.getAudience())
-                .script(request.getScript())
+                .script(finalScript)
                 .build();
 
         Presentation savedPresentation = presentationRepository.save(presentation);
