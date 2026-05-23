@@ -39,12 +39,12 @@ public class BadgeEventListener {
 
         switch (action) {
             case "PRESENTATION_CREATED":
-                checkStartBadge(userId);       // 1. 출발하기 (완성)
-                 checkRepeat10Badge(userId); // 2. 반복하기 (추후 구현)
+                checkStartBadge(userId);
+                 checkRepeat10Badge(userId);
                 break;
 
             case "ANALYZE_COMPLETED":
-                // checkAnalyzeAgainBadge(userId); // 3. 기록쌓기 (추후 구현)
+                 checkAnalyzeAgainBadge(userId); // 3. 기록쌓기 (추후 구현)
                 break;
 
             case "PRACTICE_COMPLETED":
@@ -90,6 +90,18 @@ public class BadgeEventListener {
         userBadgeRepository.save(new UserBadge(user, badgeType));
 
         sendBadgeSse(userId, badgeType);
+    }
+
+    private void checkAnalyzeAgainBadge(Long userId) {
+        if (userBadgeRepository.existsByUserIdAndBadgeType(userId, BadgeType.ANALYZE_AGAIN)) {
+            return;
+        }
+
+        boolean hasAnalyzedAgain = presentationRepository.existsByUserIdAndAnalysisResultsCountGreaterThanEqual(userId, 2L);
+
+        if (hasAnalyzedAgain) {
+            grantBadgeAndSendSse(userId, BadgeType.ANALYZE_AGAIN);
+        }
     }
 
     private void sendBadgeSse(Long userId, BadgeType badgeType) {
