@@ -3,6 +3,7 @@ package com.finger.handoff.domain.presentation.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finger.handoff.domain.badge.event.BadgeEvent;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO;
 import com.finger.handoff.domain.presentation.entity.AnalysisResult;
 import com.finger.handoff.domain.presentation.entity.Presentation;
@@ -13,6 +14,7 @@ import com.finger.handoff.global.audio.AudioConverter;
 import com.finger.handoff.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,9 +37,16 @@ public class PresentationService {
     private final PresentationRepository presentationRepository;
     private final ObjectMapper objectMapper;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     @Transactional
     public PresentationDTO.SummaryResponse analyzePresentation(Presentation presentation, MultipartFile audio) {
-        return executeAnalysis(presentation, audio);
+
+        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
+
+        eventPublisher.publishEvent(new BadgeEvent(presentation.getUser().getId(), "PRESENTATION_CREATED"));
+
+        return response;
     }
 
     @Transactional
@@ -48,7 +57,12 @@ public class PresentationService {
         if (!presentation.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("본인의 발표만 재녹음할 수 있습니다.");
         }
-        return executeAnalysis(presentation, audio);
+
+        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
+
+        eventPublisher.publishEvent(new BadgeEvent(user.getId(), "ANALYZE_COMPLETED"));
+
+        return response;
     }
 
     private PresentationDTO.SummaryResponse executeAnalysis(Presentation presentation, MultipartFile audio) {

@@ -3,6 +3,7 @@ package com.finger.handoff.domain.practice.controller;
 import com.finger.handoff.domain.practice.dto.PracticeDto;
 import com.finger.handoff.domain.practice.service.PracticeService;
 import com.finger.handoff.global.common.ApiResponse;
+import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -68,9 +70,10 @@ public class PracticeController {
     public ApiResponse<PracticeDto.AnalysisResponse> analyzeAudio(
             @Parameter(description = "분석할 사용자 음성 녹음 파일 (.wav, .m4a, .mp3 등 포맷 무관합니다.)")
             @RequestPart("audio") MultipartFile audio,
-            @RequestParam("referenceText") String referenceText) {
+            @RequestParam("referenceText") String referenceText,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        PracticeDto.AnalysisResponse response = practiceService.analyzePracticeVoice(audio, referenceText);
+        PracticeDto.AnalysisResponse response = practiceService.analyzePracticeVoice(customUserDetails.getUser().getId(), audio, referenceText);
         return ApiResponse.success(response);
     }
 }
