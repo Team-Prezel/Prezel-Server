@@ -55,7 +55,7 @@ public class BadgeEventListener {
                 break;
 
             case "REVIEW_SAVED":
-                // checkReviewBadge(userId); // 6. 돌아보기 (추후 구현)
+                checkReviewBadge(userId); // 6. 돌아보기 (추후 구현)
                 break;
 
             default:
@@ -115,6 +115,12 @@ public class BadgeEventListener {
         grantBadgeAndSendSse(userId, BadgeType.PERFECT_SCORE);
     }
 
+    private void checkReviewBadge(Long userId){
+        if (userBadgeRepository.existsByUserIdAndBadgeType(userId, BadgeType.REVIEW)) {
+            return;
+        }
+        grantBadgeAndSendSse(userId, BadgeType.REVIEW);
+    }
     private void grantBadgeAndSendSse(Long userId, BadgeType badgeType) {
         User user = userRepository.findById(userId).orElseThrow();
 

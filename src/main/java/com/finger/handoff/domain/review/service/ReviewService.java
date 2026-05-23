@@ -51,7 +51,6 @@ public class ReviewService {
         reviewRepository.save(review);
 
         eventPublisher.publishEvent(new BadgeEvent(userId, "REVIEW_SAVED"));
-        log.info("🎯 [이벤트 발행] REVIEW_SAVED -> 유저 ID: {}, 발표 ID: {}", userId, presentationId);
 
         return ReviewDto.Response.from(review);
     }
