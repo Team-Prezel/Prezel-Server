@@ -27,7 +27,6 @@ public class BadgeEventListener {
     private final UserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final PresentationRepository presentationRepository;
-    // private final PracticeRepository practiceRepository;
     // private final ReviewRepository reviewRepository;
 
     @Async
@@ -44,12 +43,15 @@ public class BadgeEventListener {
                 break;
 
             case "ANALYZE_COMPLETED":
-                 checkAnalyzeAgainBadge(userId); // 3. 기록쌓기 (추후 구현)
+                 checkAnalyzeAgainBadge(userId);
                 break;
 
             case "PRACTICE_COMPLETED":
-                // checkFirstPracticeBadge(userId); // 4. 연습하기 (추후 구현)
-                // checkPerfectScoreBadge(userId);  // 5. 성장하기 (추후 구현)
+                checkFirstPracticeBadge(userId);
+                break;
+
+            case "PERFECT_SCORE":
+                checkPerfectScoreBadge(userId);
                 break;
 
             case "REVIEW_SAVED":
@@ -84,13 +86,6 @@ public class BadgeEventListener {
         }
     }
 
-    private void grantBadgeAndSendSse(Long userId, BadgeType badgeType) {
-        User user = userRepository.findById(userId).orElseThrow();
-
-        userBadgeRepository.save(new UserBadge(user, badgeType));
-
-        sendBadgeSse(userId, badgeType);
-    }
 
     private void checkAnalyzeAgainBadge(Long userId) {
         if (userBadgeRepository.existsByUserIdAndBadgeType(userId, BadgeType.ANALYZE_AGAIN)) {
@@ -102,6 +97,30 @@ public class BadgeEventListener {
         if (hasAnalyzedAgain) {
             grantBadgeAndSendSse(userId, BadgeType.ANALYZE_AGAIN);
         }
+    }
+
+    private void checkFirstPracticeBadge(Long userId) {
+        if (userBadgeRepository.existsByUserIdAndBadgeType(userId, BadgeType.FIRST_PRACTICE)) {
+            return;
+        }
+
+
+            grantBadgeAndSendSse(userId, BadgeType.FIRST_PRACTICE);
+    }
+
+    private void checkPerfectScoreBadge(Long userId) {
+        if (userBadgeRepository.existsByUserIdAndBadgeType(userId, BadgeType.PERFECT_SCORE)) {
+            return;
+        }
+        grantBadgeAndSendSse(userId, BadgeType.PERFECT_SCORE);
+    }
+
+    private void grantBadgeAndSendSse(Long userId, BadgeType badgeType) {
+        User user = userRepository.findById(userId).orElseThrow();
+
+        userBadgeRepository.save(new UserBadge(user, badgeType));
+
+        sendBadgeSse(userId, badgeType);
     }
 
     private void sendBadgeSse(Long userId, BadgeType badgeType) {
