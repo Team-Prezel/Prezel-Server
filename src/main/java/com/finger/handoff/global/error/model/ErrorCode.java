@@ -38,6 +38,12 @@ public enum ErrorCode {
 
     ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "A001", "분석 결과를 찾을 수 없습니다.");
 
+    PRESENTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PR001", "존재하지 않는 발표입니다."),
+    UNAUTHORIZED_ACCESS(HttpStatus.FORBIDDEN, "PR002", "해당 데이터에 접근할 권한이 없습니다."),
+
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 회고입니다."),
+    ALREADY_REVIEWED(HttpStatus.CONFLICT, "R002", "이미 회고를 작성한 발표입니다."),
+    CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "R003", "셀프 피드백은 최대 200자까지 입력 가능합니다.");
     private final HttpStatus status;
     private final String code;
     private final String message;
