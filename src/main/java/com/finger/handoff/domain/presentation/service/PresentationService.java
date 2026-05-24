@@ -245,4 +245,55 @@ public class PresentationService {
         if (result.getAudioUrl() != null) s3Service.deleteAudioFile(result.getAudioUrl());
         analysisResultRepository.delete(result);
     }
+
+    @Transactional(readOnly = true)
+    public List<PresentationDTO.PresentationListResponse> getUpcomingPresentations(User user) {
+        LocalDate today = LocalDate.now();
+        List<Presentation> presentations = presentationRepository
+                .findByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), today);
+
+        return presentations.stream()
+                .map(this::mapToPresentationListResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PresentationDTO.PresentationListResponse> getPastPresentations(User user) {
+        LocalDate today = LocalDate.now();
+        List<Presentation> presentations = presentationRepository
+                .findByUserIdAndPresentationDateLessThanOrderByPresentationDateDesc(user.getId(), today);
+
+        return presentations.stream()
+                .map(this::mapToPresentationListResponse)
+                .toList();
+    }
+
+    // D-Day 계산 및 Entity -> DTO 매핑 헬퍼 메서드
+    private PresentationDTO.PresentationListResponse mapToPresentationListResponse(Presentation presentation) {
+        LocalDate today = LocalDate.now();
+        LocalDate targetDate = presentation.getPresentationDate();
+
+        // 날짜 차이 계산
+        long days = java.time.temporal.ChronoUnit.DAYS.between(today, targetDate);
+        String dDay;
+
+        if (days == 0) {
+            dDay = "D-Day";
+        } else if (days > 0) {
+            dDay = "D-" + days;
+        } else {
+            dDay = "D+" + Math.abs(days);
+        }
+
+        return PresentationDTO.PresentationListResponse.builder()
+                .presentationId(presentation.getId())
+                .title(presentation.getTitle())
+                .presentationDate(presentation.getPresentationDate())
+                .dDay(dDay)
+                .type(presentation.getType())
+                .purpose(presentation.getPurpose())
+                .style(presentation.getStyle())
+                .audience(presentation.getAudience())
+                .build();
+    }
 }

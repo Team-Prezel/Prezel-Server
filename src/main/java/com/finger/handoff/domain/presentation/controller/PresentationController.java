@@ -175,4 +175,33 @@ public class PresentationController {
         presentationService.deleteAnalysisResult(analysisResultId);
         return ApiResponse.success();
     }
+
+    @Operation(
+            summary = "다가오는 발표 목록 조회 (일반 조회)",
+            description = "발표일이 지나지 않은(오늘 포함) 발표 목록을 가까운 날짜순으로 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    @GetMapping("/upcoming")
+    public ApiResponse<java.util.List<PresentationDTO.PresentationListResponse>> getUpcomingPresentations(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        return ApiResponse.success(presentationService.getUpcomingPresentations(customUserDetails.getUser()));
+    }
+
+
+    @Operation(
+            summary = "지난 발표 목록 조회 (일반 조회)",
+            description = "발표일이 지난 발표 목록을 최근 날짜순으로 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    @GetMapping("/past")
+    public ApiResponse<java.util.List<PresentationDTO.PresentationListResponse>> getPastPresentations(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        return ApiResponse.success(presentationService.getPastPresentations(customUserDetails.getUser()));
+    }
 }

@@ -6,6 +6,7 @@ import com.finger.handoff.domain.presentation.entity.PresentationPurpose;
 import com.finger.handoff.domain.presentation.entity.PresentationStyle;
 import com.finger.handoff.domain.presentation.entity.PresentationType;
 import lombok.*;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -20,6 +21,8 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class PresentationRequest {
         private String name;
+
+        @DateTimeFormat(pattern = "yyyy-MM-dd")
         private LocalDate date;
         private PresentationType type;
         private PresentationPurpose purpose;
@@ -126,4 +129,21 @@ public class PresentationDTO {
         private Double accuracyScore;
         private Double scriptMatchRate;
     }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PresentationListResponse {
+        private Long presentationId;
+        private String title;
+        private LocalDate presentationDate;
+        private String dDay;
+
+        private PresentationType type;
+        private PresentationPurpose purpose;
+        private PresentationStyle style;
+        private PresentationAudience audience;
+    }
+
 }
