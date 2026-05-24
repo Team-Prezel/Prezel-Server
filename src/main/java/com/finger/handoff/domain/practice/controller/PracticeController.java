@@ -33,8 +33,7 @@ public class PracticeController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "대본 없음", content = @Content(
                     mediaType = "application/json",
-                    examples = @ExampleObject(value = "{\n  \"status\": 404,\n  \"code\": \"S001\",\n  \"data\": null,\n  \"message\": \"연습할 문장을 찾을 수 없습니다.\"\n}")
-            ))
+                    examples = @ExampleObject(name = "S001", value = "{\"status\": 404, \"code\": \"S001\", \"data\": null, \"message\": \"연습할 문장을 찾을 수 없습니다.\"}")))
     })
     @GetMapping("/sentence")
     public ResponseEntity<ApiResponse<PracticeDto.SentenceResponse>> getRandomSentence() {
@@ -55,16 +54,13 @@ public class PracticeController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "분석 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "음성 인식 실패", content = @Content(
                     mediaType = "application/json",
-                    examples = @ExampleObject(value = "{\n  \"status\": 400,\n  \"code\": \"V001\",\n  \"data\": null,\n  \"message\": \"분석할 음성을 인식하지 못했어요.\"\n}")
-            )),
+                    examples = @ExampleObject(name = "V001", value = "{\"status\": 400, \"code\": \"V001\", \"data\": null, \"message\": \"분석할 음성을 인식하지 못했어요.\"}"))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "파일 없음", content = @Content(
                     mediaType = "application/json",
-                    examples = @ExampleObject(value = "{\n  \"status\": 404,\n  \"code\": \"F001\",\n  \"data\": null,\n  \"message\": \"파일이 없습니다.\"\n}")
-            )),
+                    examples = @ExampleObject(name = "F001", value = "{\"status\": 404, \"code\": \"F001\", \"data\": null, \"message\": \"파일이 없습니다.\"}"))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "서버 오류 (음성 분석 실패)", content = @Content(
                     mediaType = "application/json",
-                    examples = @ExampleObject(value = "{\n  \"status\": 500,\n  \"code\": \"V002\",\n  \"data\": null,\n  \"message\": \"분석 중 문제가 발생했어요.\"\n}")
-            ))
+                    examples = @ExampleObject(name = "V002", value = "{\"status\": 500, \"code\": \"V002\", \"data\": null, \"message\": \"분석 중 문제가 발생했어요.\"}")))
     })
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<PracticeDto.AnalysisResponse> analyzeAudio(
