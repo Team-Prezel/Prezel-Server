@@ -2,6 +2,7 @@ package com.finger.handoff.domain.practice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finger.handoff.domain.badge.event.BadgeEvent;
 import com.finger.handoff.domain.practice.dto.PracticeDto;
 import com.finger.handoff.domain.practice.repository.PracticeScriptRepository;
 import com.finger.handoff.global.audio.AudioConverter;
@@ -11,6 +12,7 @@ import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +28,7 @@ public class PracticeService {
     private final ObjectMapper objectMapper;
     private final PracticeScriptRepository repository;
     private final AudioConverter audioConverter;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${azure.speech.key}")
     private String speechKey;
@@ -43,7 +46,7 @@ public class PracticeService {
         return script;
     }
 
-    public PracticeDto.AnalysisResponse analyzePracticeVoice(MultipartFile audioFile, String referenceText) {
+    public PracticeDto.AnalysisResponse analyzePracticeVoice(Long userId, MultipartFile audioFile, String referenceText) {
 
         if (audioFile == null || audioFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
@@ -76,7 +79,14 @@ public class PracticeService {
                     SpeechRecognitionResult result = task.get();
 
                     if (result.getReason() == ResultReason.RecognizedSpeech) {
-                        return extractAnalysisResult(result, referenceText);
+                        PracticeDto.AnalysisResponse response = extractAnalysisResult(result, referenceText);
+
+                        eventPublisher.publishEvent(new BadgeEvent(userId, "PRACTICE_COMPLETED"));
+
+                        if ("Perfect".equals(response.getOverallEvaluation())) {
+                            eventPublisher.publishEvent(new BadgeEvent(userId, "PERFECT_SCORE"));
+                        }
+                        return response;
                     } else if (result.getReason() == ResultReason.NoMatch) {
                         throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
                     } else {

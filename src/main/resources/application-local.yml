@@ -6,6 +6,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/handoff
+    password : khj0922.
     username: root
 
   jpa:

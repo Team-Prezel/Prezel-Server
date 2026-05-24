@@ -25,6 +25,7 @@ public enum ErrorCode {
     FILE_IS_EMPTY(HttpStatus.NOT_FOUND, "F001", "파일이 없습니다."),
     FILE_UPLOAD_FAILED(HttpStatus.FAILED_DEPENDENCY, "F002", "파일 업로드 중 오류가 발생했습니다."),
     FILE_CONVERT_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "F003", "오디오 파일 변환 중 오류가 발생했습니다."),
+    INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "F004", "지원하지 않는 파일 형식입니다."),
 
     SCRIPT_NOT_FOUND(HttpStatus.NOT_FOUND, "S001", "연습할 문장을 찾을 수 없습니다."),
 
@@ -32,8 +33,17 @@ public enum ErrorCode {
     VOICE_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "V002", "분석 중 문제가 발생했어요."),
 
     INVALID_SCRIPT_REQUEST(HttpStatus.BAD_REQUEST, "P001", "직접 입력한 대본과 대본 파일을 동시에 등록할 수 없습니다."),
-    SCRIPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "P002", "대본 파일을 읽는 중 오류가 발생했습니다.");
+    SCRIPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "P002", "대본 파일을 읽는 중 오류가 발생했습니다."),
+    PRESENTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "P003", "존재하지 않는 발표입니다."),
 
+    ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "A001", "분석 결과를 찾을 수 없습니다.");
+
+    PRESENTATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PR001", "존재하지 않는 발표입니다."),
+    UNAUTHORIZED_ACCESS(HttpStatus.FORBIDDEN, "PR002", "해당 데이터에 접근할 권한이 없습니다."),
+
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 회고입니다."),
+    ALREADY_REVIEWED(HttpStatus.CONFLICT, "R002", "이미 회고를 작성한 발표입니다."),
+    CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "R003", "셀프 피드백은 최대 200자까지 입력 가능합니다.");
     private final HttpStatus status;
     private final String code;
     private final String message;
