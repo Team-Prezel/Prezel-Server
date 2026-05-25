@@ -64,12 +64,18 @@ public class PracticeController {
     })
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<PracticeDto.AnalysisResponse> analyzeAudio(
-            @Parameter(description = "분석할 사용자 음성 녹음 파일 (.wav, .m4a, .mp3 등 포맷 무관합니다.)")
+            @Parameter(description = "분석할 사용자 음성 녹음 파일")
             @RequestPart("audio") MultipartFile audio,
             @RequestParam("referenceText") String referenceText,
+
+            @Parameter(description = "연관된 발표 ID (특정 발표 연습 시 필수)")
+            @RequestParam(value = "presentationId", required = false) Long presentationId,
+
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        PracticeDto.AnalysisResponse response = practiceService.analyzePracticeVoice(customUserDetails.getUser().getId(), audio, referenceText);
+        PracticeDto.AnalysisResponse response = practiceService.analyzePracticeVoice(
+                customUserDetails.getUser().getId(), audio, referenceText, presentationId);
+
         return ApiResponse.success(response);
     }
 }

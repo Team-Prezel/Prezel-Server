@@ -146,4 +146,21 @@ public class PresentationDTO {
         private PresentationAudience audience;
     }
 
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpcomingDetailResponse {
+        private SummaryResponse analysisResult;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PastDetailResponse {
+        private SummaryResponse analysisResult;
+        private String reviewContent;
+        private long practiceCount;
+    }
 }

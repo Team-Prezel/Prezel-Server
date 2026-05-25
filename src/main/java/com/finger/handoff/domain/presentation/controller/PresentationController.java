@@ -204,4 +204,36 @@ public class PresentationController {
 
         return ApiResponse.success(presentationService.getPastPresentations(customUserDetails.getUser()));
     }
+
+    @Operation(
+            summary = "발표일 이전 상세 조회 (다가오는 발표)",
+            description = "발표일이 지나지 않은 발표의 상세 리포트를 조회합니다. 기존 분석 결과와 동일합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음")
+    })
+    @GetMapping("/{presentationId}/upcoming")
+    public ApiResponse<PresentationDTO.UpcomingDetailResponse> getUpcomingDetail(
+            @PathVariable Long presentationId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        return ApiResponse.success(presentationService.getUpcomingPresentationDetail(presentationId, customUserDetails.getUser()));
+    }
+
+    @Operation(
+            summary = "발표일 이후 상세 조회 (지난 발표)",
+            description = "발표일이 지난 발표의 상세 리포트를 조회합니다. 기존 분석 결과에 회고록(Review) 및 연습 횟수가 추가되어 반환됩니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음")
+    })
+    @GetMapping("/{presentationId}/past")
+    public ApiResponse<PresentationDTO.PastDetailResponse> getPastDetail(
+            @PathVariable Long presentationId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        return ApiResponse.success(presentationService.getPastPresentationDetail(presentationId, customUserDetails.getUser()));
+    }
 }
