@@ -244,6 +244,21 @@ public class PresentationController {
         return ApiResponse.success(presentationService.getPastPresentationDetail(presentationId, customUserDetails.getUser()));
     }
 
+    @Operation(
+            summary = "발표 연습 기록(날짜) 조회",
+            description = "체크 상태를 판단하기 위해 발표의 생성일, 발표일, 그리고 사용자가 실제로 연습을 진행한 날짜 배열을 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    })
+    @GetMapping("/{presentationId}/practice-records")
+    public ApiResponse<PresentationDTO.PracticeDataResponse> getPracticeRecords(
+            @Parameter(description = "조회할 발표 ID") @PathVariable Long presentationId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        return ApiResponse.success(presentationService.getPracticeRecords(presentationId, customUserDetails.getUser()));
+    }
+
     /*@Operation(
             summary = "특정 분석 결과 요약 상세 조회",
             description = "분석 결과 ID(analysisResultId)를 통해 특정 회차의 요약 리포트를 조회합니다."

@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.util.concurrent.Future;
 
 @Slf4j
@@ -90,14 +91,11 @@ public class PracticeService {
                             Presentation presentation = presentationRepository.findById(presentationId)
                                     .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
 
-                            // 본인의 발표인지 권한 체크 방어 코드
                             if (!presentation.getUser().getId().equals(userId)) {
                                 throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
                             }
 
-                            presentation.incrementPracticeCount(); // 카운트 +1
-                            log.info("카운트 id = {}", presentation.getId());
-                            log.info("카운트 계수 = {}", presentation.getPracticeCount());
+                            presentation.addPracticeDate(LocalDate.now());
                         }
 
                         eventPublisher.publishEvent(new BadgeEvent(userId, "PRACTICE_COMPLETED"));

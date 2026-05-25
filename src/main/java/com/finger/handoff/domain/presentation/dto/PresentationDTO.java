@@ -168,7 +168,6 @@ public class PresentationDTO {
     public static class PastDetailResponse {
         private SummaryResponse analysisResult;
         private String reviewContent;
-        private long practiceCount;
     }
 
     @Getter
@@ -180,7 +179,6 @@ public class PresentationDTO {
         private PresentationType type;
         private LocalDate presentationDate;
         private String title;
-        private int practiceCount;
         private String dDay;
 
         @Schema(description = "하루가 지난 발표(D+1)인지 여부")
@@ -193,5 +191,15 @@ public class PresentationDTO {
 
         @Schema(description = "첫 녹음 대비 마지막 녹음 대본 일치율 변화율")
         private Integer scriptMatchRateChange;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PracticeDataResponse {
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private List<LocalDate> dates;
     }
 }

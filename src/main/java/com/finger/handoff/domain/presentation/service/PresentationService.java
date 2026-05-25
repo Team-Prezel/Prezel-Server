@@ -313,12 +313,10 @@ public class PresentationService {
                 .map(Review::getContent)
                 .orElse(null);
 
-        long practiceCount = presentation.getPracticeCount();
 
         return PresentationDTO.PastDetailResponse.builder()
                 .analysisResult(summaryResponse)
                 .reviewContent(reviewContent)
-                .practiceCount(practiceCount)
                 .build();
     }
 
@@ -476,7 +474,6 @@ public class PresentationService {
                     .type(presentation.getType())
                     .presentationDate(presentation.getPresentationDate())
                     .title(presentation.getTitle())
-                    .practiceCount(presentation.getPracticeCount())
                     .dDay(dDay)
                     .isPast(isPast)
                     .growthGraph(growthGraph)
@@ -547,6 +544,26 @@ public class PresentationService {
                 .totalErrorCount(spellError + grammarError)
                 .expectedQuestions(expectedQuestions)
                 .growthGraph(growthGraph)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PresentationDTO.PracticeDataResponse getPracticeRecords(Long presentationId, User user) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        LocalDate startDate = presentation.getCreatedAt() != null
+                ? presentation.getCreatedAt().toLocalDate()
+                : LocalDate.now();
+
+        return PresentationDTO.PracticeDataResponse.builder()
+                .startDate(startDate)
+                .endDate(presentation.getPresentationDate())
+                .dates(presentation.getPracticeDates())
                 .build();
     }
 }
