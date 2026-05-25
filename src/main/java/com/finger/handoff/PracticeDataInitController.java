@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff;
 
 import com.finger.handoff.domain.practice.entity.PracticeScript;
@@ -33,3 +34,4 @@ public class PracticeDataInitController {
         return "✅ 성공적으로 " + scripts.size() + "개의 연습용 대본이 DB에 저장되었습니다!";
     }
 }
+*/
