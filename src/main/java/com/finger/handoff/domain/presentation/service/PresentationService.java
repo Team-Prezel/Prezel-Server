@@ -414,4 +414,77 @@ public class PresentationService {
                 .growthGraph(growthGraph)
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public List<PresentationDTO.MainScreenResponse> getMainScreenData(User user) {
+        LocalDate today = LocalDate.now();
+        LocalDate cutoffDate = today.minusDays(1);
+
+        List<Presentation> presentations = presentationRepository
+                .findTop3ByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), cutoffDate);
+
+        List<PresentationDTO.MainScreenResponse> responses = new ArrayList<>();
+
+        for (Presentation presentation : presentations) {
+            LocalDate targetDate = presentation.getPresentationDate();
+
+            long days = ChronoUnit.DAYS.between(today, targetDate);
+            String dDay;
+            if (days == 0) {
+                dDay = "D-Day";
+            } else if (days > 0) {
+                dDay = "D-" + days;
+            } else {
+                dDay = "D+" + Math.abs(days);
+            }
+
+            boolean isPast = days < 0;
+
+            List<PresentationDTO.GrowthData> growthGraph = null;
+            Integer accuracyScoreChange = null;
+            Integer scriptMatchRateChange = null;
+
+            if (isPast) {
+                List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
+                growthGraph = new ArrayList<>();
+
+                int attemptCounter = 1;
+                for (AnalysisResult history : historyResults) {
+                    Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+                    Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+                    growthGraph.add(PresentationDTO.GrowthData.builder()
+                            .attempt(attemptCounter++)
+                            .accuracyScore(accuracy)
+                            .scriptMatchRate(scriptMatch)
+                            .build());
+                }
+
+                if (!growthGraph.isEmpty()) {
+                    PresentationDTO.GrowthData first = growthGraph.get(0);
+                    PresentationDTO.GrowthData last = growthGraph.get(growthGraph.size() - 1);
+
+                    accuracyScoreChange = (int) Math.round(last.getAccuracyScore() - first.getAccuracyScore());
+                    scriptMatchRateChange = (int) Math.round(last.getScriptMatchRate() - first.getScriptMatchRate());
+                } else {
+                    accuracyScoreChange = 0;
+                    scriptMatchRateChange = 0;
+                }
+            }
+
+            responses.add(PresentationDTO.MainScreenResponse.builder()
+                    .presentationId(presentation.getId())
+                    .type(presentation.getType())
+                    .presentationDate(presentation.getPresentationDate())
+                    .title(presentation.getTitle())
+                    .practiceCount(presentation.getPracticeCount())
+                    .dDay(dDay)
+                    .isPast(isPast)
+                    .growthGraph(growthGraph)
+                    .accuracyScoreChange(accuracyScoreChange)
+                    .scriptMatchRateChange(scriptMatchRateChange)
+                    .build());
+        }
+
+        return responses;
+    }
 }

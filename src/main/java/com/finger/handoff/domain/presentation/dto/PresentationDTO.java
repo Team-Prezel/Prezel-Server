@@ -5,6 +5,7 @@ import com.finger.handoff.domain.presentation.entity.PresentationAudience;
 import com.finger.handoff.domain.presentation.entity.PresentationPurpose;
 import com.finger.handoff.domain.presentation.entity.PresentationStyle;
 import com.finger.handoff.domain.presentation.entity.PresentationType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
@@ -162,5 +163,29 @@ public class PresentationDTO {
         private SummaryResponse analysisResult;
         private String reviewContent;
         private long practiceCount;
+    }
+
+    @Getter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MainScreenResponse {
+        private Long presentationId;
+        private PresentationType type;
+        private LocalDate presentationDate;
+        private String title;
+        private int practiceCount;
+        private String dDay;
+
+        @Schema(description = "하루가 지난 발표(D+1)인지 여부")
+        private Boolean isPast;
+
+        private List<GrowthData> growthGraph;
+
+        @Schema(description = "첫 녹음 대비 마지막 녹음 발화 정확도 변화율")
+        private Integer accuracyScoreChange;
+
+        @Schema(description = "첫 녹음 대비 마지막 녹음 대본 일치율 변화율")
+        private Integer scriptMatchRateChange;
     }
 }
