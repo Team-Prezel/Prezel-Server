@@ -132,7 +132,14 @@ public class PresentationController {
 
     @Operation(
             summary = "단어별 분석 상세 조회",
-            description = "특정 발표 분석 결과(analysisResultId)에 대한 단어별 발음 정확도, 상태 등의 상세 정보를 조회합니다."
+            description = "특정 발표 분석 결과(analysisResultId)에 대한 단어별 발음 정확도, 상태 등의 상세 정보를 조회합니다. " +
+                    "\n\n※ status 필드 반환 종류: " +
+                    "\n- **Excellent**: 발음 우수 (90점 이상)" +
+                    "\n- **Good**: 정상 발음" +
+                    "\n- **Stutter**: 단어 더듬음" +
+                    "\n- **Insertion**: 불필요한 추임새 (어, 음 등)" +
+                    "\n- **Omission**: 대본에 있으나 읽지 않음" +
+                    "\n- **Mispronunciation**: 부정확한 발음"
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "상세 조회 성공"),
