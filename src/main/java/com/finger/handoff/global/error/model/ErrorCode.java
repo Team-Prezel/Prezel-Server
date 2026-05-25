@@ -42,7 +42,9 @@ public enum ErrorCode {
 
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 회고입니다."),
     ALREADY_REVIEWED(HttpStatus.CONFLICT, "R002", "이미 회고를 작성한 발표입니다."),
-    CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "R003", "셀프 피드백은 최대 200자까지 입력 가능합니다.");
+    CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "R003", "셀프 피드백은 최대 200자까지 입력 가능합니다."),
+
+    BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "요청하신 뱃지 정보를 찾을 수 없습니다.");
     private final HttpStatus status;
     private final String code;
     private final String message;
