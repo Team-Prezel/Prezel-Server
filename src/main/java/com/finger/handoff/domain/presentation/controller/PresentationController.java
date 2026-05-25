@@ -244,7 +244,7 @@ public class PresentationController {
         return ApiResponse.success(presentationService.getPastPresentationDetail(presentationId, customUserDetails.getUser()));
     }
 
-    @Operation(
+    /*@Operation(
             summary = "특정 분석 결과 요약 상세 조회",
             description = "분석 결과 ID(analysisResultId)를 통해 특정 회차의 요약 리포트를 조회합니다."
     )
@@ -257,5 +257,5 @@ public class PresentationController {
             @Parameter(description = "조회할 분석 결과 ID") @PathVariable Long analysisResultId) {
 
         return ApiResponse.success(presentationService.getAnalysisSummary(analysisResultId));
-    }
+    }*/
 }
