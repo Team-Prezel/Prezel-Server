@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.badge.event.BadgeEvent;
 import com.finger.handoff.domain.practice.dto.PracticeDto;
 import com.finger.handoff.domain.practice.repository.PracticeScriptRepository;
+import com.finger.handoff.domain.presentation.entity.Presentation;
+import com.finger.handoff.domain.presentation.repository.PresentationRepository;
 import com.finger.handoff.global.audio.AudioConverter;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
 import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.util.concurrent.Future;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -29,6 +33,7 @@ public class PracticeService {
     private final PracticeScriptRepository repository;
     private final AudioConverter audioConverter;
     private final ApplicationEventPublisher eventPublisher;
+    private final PresentationRepository presentationRepository;
 
     @Value("${azure.speech.key}")
     private String speechKey;
@@ -46,8 +51,8 @@ public class PracticeService {
         return script;
     }
 
-    public PracticeDto.AnalysisResponse analyzePracticeVoice(Long userId, MultipartFile audioFile, String referenceText) {
-
+    @Transactional
+    public PracticeDto.AnalysisResponse analyzePracticeVoice(Long userId, MultipartFile audioFile, String referenceText, Long presentationId) {
         if (audioFile == null || audioFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
         }
@@ -80,6 +85,20 @@ public class PracticeService {
 
                     if (result.getReason() == ResultReason.RecognizedSpeech) {
                         PracticeDto.AnalysisResponse response = extractAnalysisResult(result, referenceText);
+
+                        if (presentationId != null) {
+                            Presentation presentation = presentationRepository.findById(presentationId)
+                                    .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+                            // 본인의 발표인지 권한 체크 방어 코드
+                            if (!presentation.getUser().getId().equals(userId)) {
+                                throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+                            }
+
+                            presentation.incrementPracticeCount(); // 카운트 +1
+                            log.info("카운트 id = {}", presentation.getId());
+                            log.info("카운트 계수 = {}", presentation.getPracticeCount());
+                        }
 
                         eventPublisher.publishEvent(new BadgeEvent(userId, "PRACTICE_COMPLETED"));
 

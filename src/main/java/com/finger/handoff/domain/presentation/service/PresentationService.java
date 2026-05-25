@@ -9,8 +9,12 @@ import com.finger.handoff.domain.presentation.entity.AnalysisResult;
 import com.finger.handoff.domain.presentation.entity.Presentation;
 import com.finger.handoff.domain.presentation.repository.AnalysisResultRepository;
 import com.finger.handoff.domain.presentation.repository.PresentationRepository;
+import com.finger.handoff.domain.review.entity.Review;
+import com.finger.handoff.domain.review.repository.ReviewRepository;
 import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.global.audio.AudioConverter;
+import com.finger.handoff.global.error.exception.BusinessException;
+import com.finger.handoff.global.error.model.ErrorCode;
 import com.finger.handoff.global.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,8 +40,9 @@ public class PresentationService {
     private final S3Service s3Service;
     private final AnalysisResultRepository analysisResultRepository;
     private final PresentationRepository presentationRepository;
-    private final ObjectMapper objectMapper;
+    private final ReviewRepository reviewRepository;
 
+    private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -52,10 +58,10 @@ public class PresentationService {
     @Transactional
     public PresentationDTO.SummaryResponse reAnalyzePresentation(Long presentationId, MultipartFile audio, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 발표입니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
 
         if (!presentation.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("본인의 발표만 재녹음할 수 있습니다.");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
         PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
@@ -244,5 +250,168 @@ public class PresentationService {
                 .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
         if (result.getAudioUrl() != null) s3Service.deleteAudioFile(result.getAudioUrl());
         analysisResultRepository.delete(result);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PresentationDTO.PresentationListResponse> getUpcomingPresentations(User user) {
+        LocalDate today = LocalDate.now();
+        List<Presentation> presentations = presentationRepository
+                .findByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), today);
+
+        return presentations.stream()
+                .map(this::mapToPresentationListResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PresentationDTO.PresentationListResponse> getPastPresentations(User user) {
+        LocalDate today = LocalDate.now();
+        List<Presentation> presentations = presentationRepository
+                .findByUserIdAndPresentationDateLessThanOrderByPresentationDateDesc(user.getId(), today);
+
+        return presentations.stream()
+                .map(this::mapToPresentationListResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PresentationDTO.UpcomingDetailResponse getUpcomingPresentationDetail(Long presentationId, User user) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (presentation.getPresentationDate() != null && presentation.getPresentationDate().isBefore(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        PresentationDTO.SummaryResponse summaryResponse = buildSummaryResponseFromDB(presentation);
+
+        return PresentationDTO.UpcomingDetailResponse.builder()
+                .analysisResult(summaryResponse)
+                .build();
+    }
+
+    @Transactional
+    public PresentationDTO.PastDetailResponse getPastPresentationDetail(Long presentationId, User user) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (presentation.getPresentationDate() != null && !presentation.getPresentationDate().isBefore(LocalDate.now())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        PresentationDTO.SummaryResponse summaryResponse = buildSummaryResponseFromDB(presentation);
+
+        String reviewContent = reviewRepository.findByIdAndUserId(presentationId, user.getId())
+                .map(Review::getContent)
+                .orElse(null);
+
+        long practiceCount = presentation.getPracticeCount();
+
+        return PresentationDTO.PastDetailResponse.builder()
+                .analysisResult(summaryResponse)
+                .reviewContent(reviewContent)
+                .practiceCount(practiceCount)
+                .build();
+    }
+
+
+    private PresentationDTO.PresentationListResponse mapToPresentationListResponse(Presentation presentation) {
+        LocalDate today = LocalDate.now();
+        LocalDate targetDate = presentation.getPresentationDate();
+
+        String dDay = "";
+        if (targetDate != null) {
+            long days = ChronoUnit.DAYS.between(today, targetDate);
+            if (days == 0) {
+                dDay = "D-Day";
+            } else if (days > 0) {
+                dDay = "D-" + days;
+            } else {
+                dDay = "D+" + Math.abs(days);
+            }
+        }
+
+        return PresentationDTO.PresentationListResponse.builder()
+                .presentationId(presentation.getId())
+                .title(presentation.getTitle())
+                .presentationDate(presentation.getPresentationDate())
+                .dDay(dDay)
+                .type(presentation.getType())
+                .purpose(presentation.getPurpose())
+                .style(presentation.getStyle())
+                .audience(presentation.getAudience())
+                .build();
+    }
+
+    private PresentationDTO.SummaryResponse buildSummaryResponseFromDB(Presentation presentation) {
+        List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
+
+        if (historyResults.isEmpty()) {
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND);
+        }
+
+        AnalysisResult latestResult = historyResults.get(historyResults.size() - 1);
+
+        List<PresentationDTO.GrowthData> growthGraph = new ArrayList<>();
+        int attemptCounter = 1;
+        for (AnalysisResult history : historyResults) {
+            Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+            Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+            growthGraph.add(PresentationDTO.GrowthData.builder()
+                    .attempt(attemptCounter++)
+                    .accuracyScore(accuracy)
+                    .scriptMatchRate(scriptMatch)
+                    .build());
+        }
+
+        List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
+        try {
+            if (latestResult.getExpectedQuestionsJson() != null && !latestResult.getExpectedQuestionsJson().equals("[]")) {
+                expectedQuestions = objectMapper.readValue(latestResult.getExpectedQuestionsJson(),
+                        new TypeReference<List<PresentationDTO.ExpectedQuestionData>>() {});
+            }
+        } catch (Exception e) {
+            log.error("예상 질문 JSON 파싱 에러", e);
+        }
+
+        int duration = latestResult.getDurationSeconds() != null ? latestResult.getDurationSeconds() : 0;
+        String formattedDuration = String.format("%02d:%02d", duration / 60, duration % 60);
+
+        int spellError = latestResult.getSpellErrorCount() != null ? latestResult.getSpellErrorCount() : 0;
+        int grammarError = latestResult.getGrammarErrorCount() != null ? latestResult.getGrammarErrorCount() : 0;
+        int totalErrorCount = spellError + grammarError;
+
+        LocalDate analysisDate = latestResult.getCreatedAt() != null ? latestResult.getCreatedAt().toLocalDate() : LocalDate.now();
+
+        return PresentationDTO.SummaryResponse.builder()
+                .presentationId(presentation.getId())
+                .analysisResultId(latestResult.getId())
+                .name(presentation.getTitle())
+                .type(presentation.getType())
+                .purpose(presentation.getPurpose())
+                .style(presentation.getStyle())
+                .audience(presentation.getAudience())
+                .analysisDate(analysisDate)
+                .durationSeconds(duration)
+                .formattedDuration(formattedDuration)
+                .spm(latestResult.getSpm())
+                .speedEval(latestResult.getSpeedEval())
+                .summaryFeedback(latestResult.getSummaryFeedback())
+                .accuracyScore(latestResult.getAccuracyScore())
+                .scriptMatchRate(latestResult.getScriptMatchRate())
+                .spellErrorCount(spellError)
+                .grammarErrorCount(grammarError)
+                .totalErrorCount(totalErrorCount)
+                .expectedQuestions(expectedQuestions)
+                .growthGraph(growthGraph)
+                .build();
     }
 }
