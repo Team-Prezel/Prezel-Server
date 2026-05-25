@@ -41,8 +41,15 @@ public class Presentation {
     @Column(columnDefinition = "TEXT")
     private String script;
 
+    @Column(nullable = false)
+    private int practiceCount = 0;
+
     @OneToMany(mappedBy = "presentation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AnalysisResult> analysisResults = new ArrayList<>();
+
+    public void incrementPracticeCount() {
+        this.practiceCount++;
+    }
 
     @Builder
     public Presentation(User user, String title, LocalDate presentationDate,
