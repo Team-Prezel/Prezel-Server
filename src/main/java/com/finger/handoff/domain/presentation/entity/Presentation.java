@@ -5,19 +5,27 @@ import jakarta.persistence.*;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Getter
 @NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Presentation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @CreatedDate
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
@@ -41,14 +49,18 @@ public class Presentation {
     @Column(columnDefinition = "TEXT")
     private String script;
 
-    @Column(nullable = false)
-    private int practiceCount = 0;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "presentation_practice_dates", joinColumns = @JoinColumn(name = "presentation_id"))
+    @Column(name = "practice_date")
+    private List<LocalDate> practiceDates = new ArrayList<>();
 
     @OneToMany(mappedBy = "presentation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AnalysisResult> analysisResults = new ArrayList<>();
 
-    public void incrementPracticeCount() {
-        this.practiceCount++;
+
+    public void addPracticeDate(LocalDate date) {
+        this.practiceDates.add(date);
     }
 
     @Builder
