@@ -487,4 +487,66 @@ public class PresentationService {
 
         return responses;
     }
+
+    @Transactional(readOnly = true)
+    public PresentationDTO.SummaryResponse getAnalysisSummary(Long analysisResultId) {
+        AnalysisResult targetResult = analysisResultRepository.findById(analysisResultId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        Presentation presentation = targetResult.getPresentation();
+
+        List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
+        List<PresentationDTO.GrowthData> growthGraph = new ArrayList<>();
+        int attemptCounter = 1;
+        for (AnalysisResult history : historyResults) {
+            Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+            Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+            growthGraph.add(PresentationDTO.GrowthData.builder()
+                    .attempt(attemptCounter++)
+                    .accuracyScore(accuracy)
+                    .scriptMatchRate(scriptMatch)
+                    .build());
+        }
+
+        List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
+        try {
+            if (targetResult.getExpectedQuestionsJson() != null && !targetResult.getExpectedQuestionsJson().equals("[]")) {
+                expectedQuestions = objectMapper.readValue(targetResult.getExpectedQuestionsJson(),
+                        new TypeReference<List<PresentationDTO.ExpectedQuestionData>>() {});
+            }
+        } catch (Exception e) {
+            log.error("예상 질문 JSON 파싱 에러", e);
+        }
+
+        int duration = targetResult.getDurationSeconds() != null ? targetResult.getDurationSeconds() : 0;
+        String formattedDuration = String.format("%02d:%02d", duration / 60, duration % 60);
+
+        int spellError = targetResult.getSpellErrorCount() != null ? targetResult.getSpellErrorCount() : 0;
+        int grammarError = targetResult.getGrammarErrorCount() != null ? targetResult.getGrammarErrorCount() : 0;
+
+        LocalDate analysisDate = targetResult.getCreatedAt() != null ? targetResult.getCreatedAt().toLocalDate() : LocalDate.now();
+
+        return PresentationDTO.SummaryResponse.builder()
+                .presentationId(presentation.getId())
+                .analysisResultId(targetResult.getId())
+                .name(presentation.getTitle())
+                .type(presentation.getType())
+                .purpose(presentation.getPurpose())
+                .style(presentation.getStyle())
+                .audience(presentation.getAudience())
+                .analysisDate(analysisDate)
+                .durationSeconds(duration)
+                .formattedDuration(formattedDuration)
+                .spm(targetResult.getSpm())
+                .speedEval(targetResult.getSpeedEval())
+                .summaryFeedback(targetResult.getSummaryFeedback())
+                .accuracyScore(targetResult.getAccuracyScore())
+                .scriptMatchRate(targetResult.getScriptMatchRate())
+                .spellErrorCount(spellError)
+                .grammarErrorCount(grammarError)
+                .totalErrorCount(spellError + grammarError)
+                .expectedQuestions(expectedQuestions)
+                .growthGraph(growthGraph)
+                .build();
+    }
 }

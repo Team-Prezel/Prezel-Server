@@ -236,4 +236,19 @@ public class PresentationController {
 
         return ApiResponse.success(presentationService.getPastPresentationDetail(presentationId, customUserDetails.getUser()));
     }
+
+    @Operation(
+            summary = "특정 분석 결과 요약 상세 조회",
+            description = "분석 결과 ID(analysisResultId)를 통해 특정 회차의 요약 리포트를 조회합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "결과를 찾을 수 없음")
+    })
+    @GetMapping("/analyze/{analysisResultId}")
+    public ApiResponse<PresentationDTO.SummaryResponse> getAnalysisSummary(
+            @Parameter(description = "조회할 분석 결과 ID") @PathVariable Long analysisResultId) {
+
+        return ApiResponse.success(presentationService.getAnalysisSummary(analysisResultId));
+    }
 }
