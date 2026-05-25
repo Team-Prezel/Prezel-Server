@@ -91,6 +91,12 @@ public class PresentationDTO {
     @AllArgsConstructor
     public static class WordAnalysisDetail {
         private String word;
+
+        @io.swagger.v3.oas.annotations.media.Schema(
+                description = "발음 상태 종류 (Excellent: 우수, Good: 보통, Stutter: 더듬음, Insertion: 추임새, Omission: 미발화, Mispronunciation: 오발음)",
+                allowableValues = {"Excellent", "Good", "Stutter", "Insertion", "Omission", "Mispronunciation"},
+                example = "Excellent"
+        )
         private String status;
         private String description;
         private Double accuracy;
