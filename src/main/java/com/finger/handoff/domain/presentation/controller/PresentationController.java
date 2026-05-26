@@ -109,10 +109,14 @@ public class PresentationController {
 
     @Operation(
             summary = "기존 발표 재녹음 및 재분석",
-            description = "기존에 등록된 발표(presentationId)에 대해 새로운 음성 파일을 업로드하여 재분석을 수행합니다."
+            description = "기존에 등록된 발표(presentationId)에 대해 새로운 음성 파일을 업로드하여 재분석을 수행합니다. " +
+                    "대본을 수정한 경우 script 또는 scriptFile 파라미터를 함께 보내면 대본이 새롭게 업데이트된 후 분석이 진행됩니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "발표 재분석 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청", content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(name = "P001", value = "{\"status\": 400, \"code\": \"P001\", \"data\": null, \"message\": \"직접 입력한 대본과 대본 파일을 동시에 등록할 수 없습니다.\"}"))),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음", content = @Content(
                     mediaType = "application/json",
                     examples = @ExampleObject(name = "U002", value = "{\"status\": 403, \"code\": \"U002\", \"data\": null, \"message\": \"접근 권한이 없습니다.\"}"))),
@@ -123,10 +127,14 @@ public class PresentationController {
     @PostMapping(value = "/{presentationId}/re-analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<PresentationDTO.SummaryResponse> reAnalyzeRecording(
             @Parameter(description = "재분석할 발표 ID") @PathVariable Long presentationId,
-            @RequestParam("audio") MultipartFile audio,
+            @Parameter(description = "재녹음한 음성 파일", required = true) @RequestParam("audio") MultipartFile audio,
+            @Parameter(description = "수정할 대본 txt 파일 (선택)") @RequestPart(value = "scriptFile", required = false) MultipartFile scriptFile,
+            @Parameter(description = "수정할 대본 텍스트 (선택)") @RequestParam(value = "script", required = false) String script,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        PresentationDTO.SummaryResponse response = presentationService.reAnalyzePresentation(presentationId, audio, customUserDetails.getUser());
+        PresentationDTO.SummaryResponse response = presentationService.reAnalyzePresentation(
+                presentationId, audio, scriptFile, script, customUserDetails.getUser());
+
         return ApiResponse.success(response);
     }
 
@@ -257,29 +265,6 @@ public class PresentationController {
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
         return ApiResponse.success(presentationService.getPracticeRecords(presentationId, customUserDetails.getUser()));
-    }
-
-    @Operation(
-            summary = "발표 대본 수정 (다시 대본쓰기)",
-            description = "기존 발표의 대본 내용을 새롭게 수정합니다. 텍스트 직접 입력 또는 txt 파일 업로드 중 하나를 선택하여 전송합니다."
-    )
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "대본 수정 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 누락 및 만료"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음", content = @Content(
-                    mediaType = "application/json",
-                    examples = @ExampleObject(name = "P003", description = "존재하지 않는 발표 ID", value = "{\"status\": 404, \"code\": \"P003\", \"data\": null, \"message\": \"존재하지 않는 발표입니다.\"}")))
-    })
-    @PatchMapping(value = "/{presentationId}/script", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<Void> updateScript(
-            @Parameter(description = "수정할 발표 ID") @PathVariable Long presentationId,
-            @Parameter(description = "수정할 대본 txt 파일 (선택)") @RequestPart(value = "scriptFile", required = false) MultipartFile scriptFile,
-            @Parameter(description = "수정할 대본 텍스트 (선택)") @RequestParam(value = "script", required = false) String script,
-            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
-
-        presentationService.updateScript(presentationId, customUserDetails.getUser(), scriptFile, script);
-        return ApiResponse.success(null);
     }
 
     /*@Operation(
