@@ -358,17 +358,23 @@ public class PresentationService {
 
         AnalysisResult latestResult = historyResults.get(historyResults.size() - 1);
 
-        List<PresentationDTO.GrowthData> growthGraph = new ArrayList<>();
-        int attemptCounter = 1;
-        for (AnalysisResult history : historyResults) {
-            Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
-            Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
-            growthGraph.add(PresentationDTO.GrowthData.builder()
-                    .attempt(attemptCounter++)
-                    .accuracyScore(accuracy)
-                    .scriptMatchRate(scriptMatch)
-                    .build());
+        boolean hasScript = presentation.getScript() != null && !presentation.getScript().trim().isEmpty();
+        List<PresentationDTO.GrowthData> growthGraph = null;
+
+        if (hasScript) {
+            int attemptCounter = 1;
+            growthGraph = new  ArrayList<>();
+            for (AnalysisResult history : historyResults) {
+                Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+                Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+                growthGraph.add(PresentationDTO.GrowthData.builder()
+                        .attempt(attemptCounter++)
+                        .accuracyScore(accuracy)
+                        .scriptMatchRate(scriptMatch)
+                        .build());
+            }
         }
+
 
         List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
         try {
@@ -437,12 +443,13 @@ public class PresentationService {
             }
 
             boolean isPast = days < 0;
+            boolean hasScript = presentation.getScript() != null && !presentation.getScript().trim().isEmpty();
 
             List<PresentationDTO.GrowthData> growthGraph = null;
             Integer accuracyScoreChange = null;
             Integer scriptMatchRateChange = null;
 
-            if (isPast) {
+            if (isPast && hasScript) {
                 List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
                 growthGraph = new ArrayList<>();
 
@@ -492,17 +499,23 @@ public class PresentationService {
 
         Presentation presentation = targetResult.getPresentation();
 
-        List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
-        List<PresentationDTO.GrowthData> growthGraph = new ArrayList<>();
-        int attemptCounter = 1;
-        for (AnalysisResult history : historyResults) {
-            Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
-            Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
-            growthGraph.add(PresentationDTO.GrowthData.builder()
-                    .attempt(attemptCounter++)
-                    .accuracyScore(accuracy)
-                    .scriptMatchRate(scriptMatch)
-                    .build());
+        boolean hasScript = presentation.getScript() != null && !presentation.getScript().trim().isEmpty();
+        List<PresentationDTO.GrowthData> growthGraph = null;
+
+        if (hasScript) {
+            int attemptCounter = 1;
+            growthGraph = new ArrayList<>();
+            List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
+
+            for (AnalysisResult history : historyResults) {
+                Double accuracy = history.getAccuracyScore() != null ? history.getAccuracyScore() : 0.0;
+                Double scriptMatch = history.getScriptMatchRate() != null ? history.getScriptMatchRate() : 0.0;
+                growthGraph.add(PresentationDTO.GrowthData.builder()
+                        .attempt(attemptCounter++)
+                        .accuracyScore(accuracy)
+                        .scriptMatchRate(scriptMatch)
+                        .build());
+            }
         }
 
         List<PresentationDTO.ExpectedQuestionData> expectedQuestions = new ArrayList<>();
