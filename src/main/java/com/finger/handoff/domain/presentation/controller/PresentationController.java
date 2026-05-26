@@ -259,6 +259,29 @@ public class PresentationController {
         return ApiResponse.success(presentationService.getPracticeRecords(presentationId, customUserDetails.getUser()));
     }
 
+    @Operation(
+            summary = "발표 대본 수정 (다시 대본쓰기)",
+            description = "기존 발표의 대본 내용을 새롭게 수정합니다. 텍스트 직접 입력 또는 txt 파일 업로드 중 하나를 선택하여 전송합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "대본 수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰 누락 및 만료"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음", content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(name = "P003", description = "존재하지 않는 발표 ID", value = "{\"status\": 404, \"code\": \"P003\", \"data\": null, \"message\": \"존재하지 않는 발표입니다.\"}")))
+    })
+    @PatchMapping(value = "/{presentationId}/script", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<Void> updateScript(
+            @Parameter(description = "수정할 발표 ID") @PathVariable Long presentationId,
+            @Parameter(description = "수정할 대본 txt 파일 (선택)") @RequestPart(value = "scriptFile", required = false) MultipartFile scriptFile,
+            @Parameter(description = "수정할 대본 텍스트 (선택)") @RequestParam(value = "script", required = false) String script,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.updateScript(presentationId, customUserDetails.getUser(), scriptFile, script);
+        return ApiResponse.success(null);
+    }
+
     /*@Operation(
             summary = "특정 분석 결과 요약 상세 조회",
             description = "분석 결과 ID(analysisResultId)를 통해 특정 회차의 요약 리포트를 조회합니다."
