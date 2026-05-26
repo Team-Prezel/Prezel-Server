@@ -24,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -578,5 +580,33 @@ public class PresentationService {
                 .endDate(presentation.getPresentationDate())
                 .dates(presentation.getPracticeDates())
                 .build();
+    }
+
+    @Transactional
+    public void updateScript(Long presentationId, User user, MultipartFile scriptFile, String scriptText) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        String newScript = "";
+
+        if (scriptFile != null && !scriptFile.isEmpty()) {
+            try {
+                newScript = new String(scriptFile.getBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                log.error("대본 파일 읽기 오류", e);
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            }
+        }
+        else if (scriptText != null && !scriptText.trim().isEmpty()) {
+            newScript = scriptText;
+        }
+        else {
+        }
+
+        presentation.updateScript(newScript);
     }
 }
