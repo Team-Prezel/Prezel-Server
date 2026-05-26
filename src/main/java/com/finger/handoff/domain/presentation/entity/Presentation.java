@@ -63,6 +63,10 @@ public class Presentation {
         this.practiceDates.add(date);
     }
 
+    public void updateScript(String newScript) {
+        this.script = newScript;
+    }
+
     @Builder
     public Presentation(User user, String title, LocalDate presentationDate,
                         PresentationType type, PresentationPurpose purpose,
