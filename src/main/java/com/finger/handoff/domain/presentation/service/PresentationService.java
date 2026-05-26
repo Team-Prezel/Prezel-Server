@@ -58,12 +58,33 @@ public class PresentationService {
     }
 
     @Transactional
-    public PresentationDTO.SummaryResponse reAnalyzePresentation(Long presentationId, MultipartFile audio, User user) {
+    public PresentationDTO.SummaryResponse reAnalyzePresentation(Long presentationId, MultipartFile audio,
+                                                                 MultipartFile scriptFile, String scriptText, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
 
         if (!presentation.getUser().getId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        boolean hasTextScript = scriptText != null && !scriptText.trim().isEmpty();
+        boolean hasFileScript = scriptFile != null && !scriptFile.isEmpty();
+
+        if (hasTextScript && hasFileScript) {
+            throw new BusinessException(ErrorCode.INVALID_SCRIPT_REQUEST);
+        }
+
+        if (hasFileScript) {
+            try {
+                String newScript = new String(scriptFile.getBytes(), StandardCharsets.UTF_8);
+                presentation.updateScript(newScript);
+            } catch (Exception e) {
+                log.error("대본 파일 읽기 오류", e);
+                throw new BusinessException(ErrorCode.SCRIPT_FILE_READ_FAILED);
+            }
+        }
+        else if (hasTextScript) {
+            presentation.updateScript(scriptText);
         }
 
         PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
@@ -580,33 +601,5 @@ public class PresentationService {
                 .endDate(presentation.getPresentationDate())
                 .dates(presentation.getPracticeDates())
                 .build();
-    }
-
-    @Transactional
-    public void updateScript(Long presentationId, User user, MultipartFile scriptFile, String scriptText) {
-        Presentation presentation = presentationRepository.findById(presentationId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
-
-        if (!presentation.getUser().getId().equals(user.getId())) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
-        }
-
-        String newScript = "";
-
-        if (scriptFile != null && !scriptFile.isEmpty()) {
-            try {
-                newScript = new String(scriptFile.getBytes(), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                log.error("대본 파일 읽기 오류", e);
-                throw new BusinessException(ErrorCode.INVALID_REQUEST);
-            }
-        }
-        else if (scriptText != null && !scriptText.trim().isEmpty()) {
-            newScript = scriptText;
-        }
-        else {
-        }
-
-        presentation.updateScript(newScript);
     }
 }
