@@ -1,5 +1,8 @@
 package com.finger.handoff.domain.user.service;
 
+import com.finger.handoff.domain.badge.repository.UserBadgeRepository;
+import com.finger.handoff.domain.presentation.repository.PresentationRepository;
+import com.finger.handoff.domain.review.repository.ReviewRepository;
 import com.finger.handoff.domain.user.dto.UserDto;
 import com.finger.handoff.domain.user.dto.UserProfileRequest;
 import com.finger.handoff.domain.user.dto.UserWithdrawRequest;
@@ -22,6 +25,9 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserLeaveLogRepository userLeaveLogRepository;
     private final S3Service s3UploadService;
+    private final PresentationRepository presentationRepository;
+    private final UserBadgeRepository userBadgeRepository;
+    private final ReviewRepository reviewRepository;
 
     @Transactional
     public User findOrCreateUser(String email) {
@@ -60,6 +66,10 @@ public class UserService {
                 .reasonText(request.getReasonText())
                 .build();
         userLeaveLogRepository.save(leaveLog);
+
+        reviewRepository.deleteAllByUserId(userId);
+        userBadgeRepository.deleteAllByUserId(userId);
+        presentationRepository.deleteAllByUserId(userId);
 
         userRepository.delete(user);
     }
