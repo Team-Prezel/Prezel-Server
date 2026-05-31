@@ -27,7 +27,7 @@ public class BadgeDto {
 
     @Builder
     public record BadgeDetailResponse(
-            String bedgeCode,
+            String badgeCode,
             String badgeName,
             String detailDescription,
             String conditionText,
@@ -37,7 +37,7 @@ public class BadgeDto {
     ) {
         public static BadgeDetailResponse of(BadgeType type, boolean isUnlocked, LocalDateTime unlockedAt) {
             return BadgeDetailResponse.builder()
-                    .bedgeCode(type.name())
+                    .badgeCode(type.name())
                     .badgeName(type.getBadgeName())
                     .detailDescription(type.getDetailDescription())
                     .conditionText(type.getConditionText())

@@ -11,4 +11,6 @@ public interface S3Service {
     String uploadAudioFile(MultipartFile file);
 
     void deleteAudioFile(String fileUrl);
+
+    String uploadBadgeImage(MultipartFile file, String badgeName);
 }
