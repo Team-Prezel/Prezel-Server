@@ -125,6 +125,8 @@ public class PresentationDTO {
         private String originalText;  // 원본 텍스트
         private String correctedText; // 교정된 텍스트
         private String reason;        // 교정 이유
+        private Integer startIndex;   // 오류 문장 시작 인덱스
+        private Integer endIndex;     // 오류 문장 마무리 인덱스
     }
 
     @Getter

@@ -2,6 +2,7 @@ package com.finger.handoff.domain.presentation.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,8 @@ public class GeminiService {
 
     private String getScriptErrorInstruction() {
         return "[작업 2: 대본 오류 분석]\n" +
-                "깐깐한 교정기처럼 원본 대본 내용에 있는 '맞춤법(SPELLING)' 및 '주술 호응(GRAMMAR)' 오류를 모두 찾아내.";
+                "깐깐한 교정기처럼 원본 대본 내용에 있는 '맞춤법(SPELLING)' 및 '주술 호응(GRAMMAR)' 오류를 모두 찾아내. " +
+                "(단, 'sentence' 필드에는 오류를 정확히 매핑할 수 있도록 원본 대본에 있는 문장을 띄어쓰기 훼손 없이 정확히 그대로 복사해서 넣어줘.)";
     }
 
     private String getExpectedQuestionsInstruction() {
@@ -94,10 +96,10 @@ public class GeminiService {
 
             log.info("Gemini All-in-One 응답: {}", content);
 
-            int startIndex = content.indexOf("{");
-            int endIndex = content.lastIndexOf("}");
-            if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
-                content = content.substring(startIndex, endIndex + 1);
+            int jsonStartIndex = content.indexOf("{");
+            int jsonEndIndex = content.lastIndexOf("}");
+            if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonStartIndex < jsonEndIndex) {
+                content = content.substring(jsonStartIndex, jsonEndIndex + 1);
             } else {
                 throw new RuntimeException("JSON 객체를 찾을 수 없습니다.");
             }
@@ -107,6 +109,56 @@ public class GeminiService {
             String summary = aiData.path("summaryFeedback").asText("피드백을 생성하지 못했습니다.");
 
             JsonNode scriptErrorsNode = aiData.path("scriptErrors");
+
+            if (scriptErrorsNode.isArray()) {
+                int globalSearchCursor = 0;
+
+                for (JsonNode error : scriptErrorsNode) {
+                    if (error.isObject()) {
+                        ObjectNode errorObj = (ObjectNode) error;
+
+                        String sentence = errorObj.path("sentence").asText("");
+                        String originalText = errorObj.path("originalText").asText("");
+
+                        int errorStartIndex = -1;
+                        int errorEndIndex = -1;
+
+                        if (originalScript != null && !originalText.isEmpty()) {
+
+                            int searchStart = Math.max(0, globalSearchCursor - (sentence.length() > 0 ? sentence.length() : 50));
+                            int sentenceIndex = originalScript.indexOf(sentence, searchStart);
+
+                            while (sentenceIndex != -1) {
+                                int wordSearchStart = Math.max(sentenceIndex, globalSearchCursor);
+                                errorStartIndex = originalScript.indexOf(originalText, wordSearchStart);
+
+                                if (errorStartIndex != -1 && errorStartIndex <= sentenceIndex + sentence.length()) {
+                                    break;
+                                } else {
+                                    sentenceIndex = originalScript.indexOf(sentence, sentenceIndex + 1);
+                                    errorStartIndex = -1;
+                                }
+                            }
+
+                            if (errorStartIndex == -1) {
+                                errorStartIndex = originalScript.indexOf(originalText, globalSearchCursor);
+                                if (errorStartIndex == -1) {
+                                    errorStartIndex = originalScript.indexOf(originalText);
+                                }
+                            }
+
+                            if (errorStartIndex != -1) {
+                                errorEndIndex = errorStartIndex + originalText.length();
+                                globalSearchCursor = errorEndIndex;
+                            }
+                        }
+
+                        errorObj.put("startIndex", errorStartIndex);
+                        errorObj.put("endIndex", errorEndIndex);
+                    }
+                }
+            }
+
             String scriptDetailsJson = scriptErrorsNode.isMissingNode() ? "[]" : scriptErrorsNode.toString();
 
             JsonNode expectedQuestionsNode = aiData.path("expectedQuestions");
