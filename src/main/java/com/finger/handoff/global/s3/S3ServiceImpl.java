@@ -135,6 +135,38 @@ public class S3ServiceImpl implements S3Service {
         }
     }
 
+    @Override
+    public String uploadBadgeImage(MultipartFile file, String badgeName) {
+        if (file.isEmpty()) {
+            throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String extension = extractExtension(originalFilename);
+
+        String s3FileName = "badges/" + badgeName + extension;
+
+        try {
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3FileName)
+                    .contentType(file.getContentType())
+                    .build();
+
+            s3Client.putObject(putObjectRequest,
+                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+
+            return s3Client.utilities().getUrl(GetUrlRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3FileName)
+                    .build()).toExternalForm();
+
+        } catch (IOException e) {
+            log.error("S3 뱃지 이미지 업로드 상세 실패 원인: ", e);
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
+    }
+
     private String extractExtension(String originalFilename) {
         if (originalFilename == null || !originalFilename.contains(".")) {
             return "";

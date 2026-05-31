@@ -92,7 +92,7 @@ public class BadgeEventListener {
             return;
         }
 
-        boolean hasAnalyzedAgain = presentationRepository.existsByUserIdAndAnalysisResultsCountGreaterThanEqual(userId, 2L);
+        boolean hasAnalyzedAgain = presentationRepository.existsByUserIdAndAnalysisResultsCountGreaterThanEqual(userId, 3L);
 
         if (hasAnalyzedAgain) {
             grantBadgeAndSendSse(userId, BadgeType.ANALYZE_AGAIN);
@@ -133,7 +133,6 @@ public class BadgeEventListener {
         SseEmitter emitter = SseController.emitters.get(userId);
         if (emitter != null) {
             try {
-                // Enum 내부에 선언된 메타데이터를 활용해 DTO 생성
                 BadgeResponse response = new BadgeResponse(
                         badgeType.name(),
                         badgeType.getBadgeName(),
