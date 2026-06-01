@@ -104,8 +104,8 @@ public class PresentationService {
                     azureSpeechService.analyzePronunciation(wavFile.getAbsolutePath(), presentation.getScript());
 
             String wordDetailsJson = "[]";
-            if (azureResult.getWordDetails() != null) {
-                wordDetailsJson = objectMapper.writeValueAsString(azureResult.getWordDetails());
+            if (azureResult.getSentenceDetails() != null) {
+                wordDetailsJson = objectMapper.writeValueAsString(azureResult.getSentenceDetails());
             }
 
             GeminiService.GeminiAllInOneResponse aiResponse;
@@ -227,11 +227,11 @@ public class PresentationService {
         AnalysisResult result = analysisResultRepository.findById(analysisResultId)
                 .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
 
-        List<PresentationDTO.WordAnalysisDetail> wordDetails = null;
+        List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = null;
         try {
             if (result.getWordDetailsJson() != null && !result.getWordDetailsJson().equals("[]")) {
-                wordDetails = objectMapper.readValue(result.getWordDetailsJson(),
-                        new TypeReference<List<PresentationDTO.WordAnalysisDetail>>() {});
+                sentenceDetails = objectMapper.readValue(result.getWordDetailsJson(),
+                        new TypeReference<List<PresentationDTO.SentenceAnalysisDetail>>() {});
             }
         } catch (JsonProcessingException e) {
             log.error("단어 파싱 오류", e);
@@ -240,7 +240,7 @@ public class PresentationService {
         return PresentationDTO.WordDetailResponse.builder()
                 .presentationId(result.getPresentation().getId())
                 .audioUrl(result.getAudioUrl())
-                .wordDetails(wordDetails)
+                .sentenceDetails(sentenceDetails)
                 .build();
     }
 

@@ -3,6 +3,7 @@ package com.finger.handoff.domain.presentation.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.finger.handoff.domain.presentation.dto.PresentationDTO;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,7 @@ public class GeminiService {
     private String getScriptErrorInstruction() {
         return "[작업 2: 대본 오류 분석]\n" +
                 "깐깐한 교정기처럼 원본 대본 내용에 있는 '맞춤법(SPELLING)' 및 '주술 호응(GRAMMAR)' 오류를 모두 찾아내. " +
+                "그리고 각 오류에 대해 왜 틀렸는지, 왜 그렇게 교정했는지 'reason' 필드에 교정 이유를 구체적으로 작성해줘. " +
                 "(단, 'sentence' 필드에는 오류를 정확히 매핑할 수 있도록 원본 대본에 있는 문장을 띄어쓰기 훼손 없이 정확히 그대로 복사해서 넣어줘.)";
     }
 
@@ -200,9 +202,20 @@ public class GeminiService {
         if (result.getAccuracyScore() != null) {
             sb.append("- 발음 정확도 점수: ").append(String.format("%.1f", result.getAccuracyScore())).append("점 / 100점\n");
         }
-        if (result.getWordDetails() != null) {
-            long stutterCount = result.getWordDetails().stream().filter(w -> "Stutter".equals(w.getStatus())).count();
-            long insertionCount = result.getWordDetails().stream().filter(w -> "Insertion".equals(w.getStatus())).count();
+
+        if (result.getSentenceDetails() != null) {
+            long stutterCount = 0;
+            long insertionCount = 0;
+
+            for (PresentationDTO.SentenceAnalysisDetail sentenceDetail : result.getSentenceDetails()) {
+                if (sentenceDetail.getWordDetails() != null) {
+                    stutterCount += sentenceDetail.getWordDetails().stream()
+                            .filter(w -> "Stutter".equals(w.getStatus())).count();
+                    insertionCount += sentenceDetail.getWordDetails().stream()
+                            .filter(w -> "Insertion".equals(w.getStatus())).count();
+                }
+            }
+
             sb.append("- 더듬거나 반복한 횟수: ").append(stutterCount).append("회\n");
             sb.append("- 불필요한 추임새 횟수: ").append(insertionCount).append("회\n");
         }
