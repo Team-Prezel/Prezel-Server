@@ -2,6 +2,7 @@ package com.finger.handoff.domain.presentation.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finger.handoff.domain.presentation.dto.PresentationDTO;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO.WordAnalysisDetail;
 import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
@@ -35,7 +36,7 @@ public class AzureSpeechService {
         private String speedEval;
         private Double accuracyScore;
         private Double scriptMatchRate;
-        private List<WordAnalysisDetail> wordDetails;
+        private List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails;
     }
 
     public AzureAnalysisDto analyzePronunciation(String audioFilePath, String referenceText) {
@@ -135,34 +136,42 @@ public class AzureSpeechService {
                     }
 
                     String statusCode;
-                    String description;
+                    String mainFeedback;
+                    String subFeedback;
 
                     if (isStutter) {
                         statusCode = "Stutter";
-                        description = "단어 반복/더듬음";
+                        mainFeedback = "단어 반복/더듬음";
+                        subFeedback = "말을 더듬었습니다. 자연스럽게 이어서 말할 수 있도록 연습해 보세요.";
                     } else if (errorType.equals("Insertion")) {
                         statusCode = "Insertion";
-                        description = "추임새/불필요한 말";
+                        mainFeedback = "추임새/불필요한 말";
+                        subFeedback = "대본에 없는 단어가 발음되었습니다. 대본에 집중해 보세요.";
                     } else if (errorType.equals("Omission")) {
                         statusCode = "Omission";
-                        description = "안 읽고 넘어감";
+                        mainFeedback = "안 읽고 넘어감";
+                        subFeedback = "대본에 있는 단어를 빠뜨렸습니다. 빼먹지 않도록 주의해 주세요.";
                     } else if (errorType.equals("Mispronunciation")) {
                         statusCode = "Mispronunciation";
-                        description = "발음 틀림/부정확";
+                        mainFeedback = "발음 틀림/부정확";
+                        subFeedback = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
                     } else {
                         if (accuracy >= EXCELLENT_PRONUNCIATION_THRESHOLD) {
                             statusCode = "Excellent";
-                            description = "매우 또렷하고 훌륭한 발음";
+                            mainFeedback = "매우 또렷하고 훌륭한 발음";
+                            subFeedback = "아주 정확하게 발음하셨습니다!";
                         } else {
                             statusCode = "Good";
-                            description = "틀리지 않은 무난한 발음";
+                            mainFeedback = "틀리지 않은 무난한 발음";
+                            subFeedback = "조금 더 정확하게 발음해 보세요.";
                         }
                     }
 
                     wordDetails.add(WordAnalysisDetail.builder()
                             .word(word)
                             .status(statusCode)
-                            .description(description)
+                            .mainFeedback(mainFeedback)
+                            .subFeedback(subFeedback)
                             .accuracy(accuracy)
                             .startTimeMs(startMs)
                             .endTimeMs(endMs)
@@ -174,13 +183,70 @@ public class AzureSpeechService {
                 }
             }
 
+            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = new ArrayList<>();
+
+            String[] rawSentences = referenceText.split("(?<=[.!?])\\s+|\\r?\\n+");
+            List<String> validSentences = new ArrayList<>();
+            for (String s : rawSentences) {
+                if (s != null && !s.trim().isEmpty()) {
+                    validSentences.add(s.trim());
+                }
+            }
+
+            if (!validSentences.isEmpty()) {
+                int currentSentenceIndex = 0;
+                int wordCountInCurrentSentence = countWords(validSentences.get(currentSentenceIndex));
+                int matchedWords = 0;
+                List<WordAnalysisDetail> currentSentenceWords = new ArrayList<>();
+
+                for (WordAnalysisDetail wordDetail : wordDetails) {
+                    currentSentenceWords.add(wordDetail);
+
+                    if (!"Insertion".equals(wordDetail.getStatus())) {
+                        matchedWords++;
+                    }
+
+                    if (matchedWords >= wordCountInCurrentSentence) {
+                        sentenceDetails.add(PresentationDTO.SentenceAnalysisDetail.builder()
+                                .sentence(validSentences.get(currentSentenceIndex))
+                                .wordDetails(currentSentenceWords)
+                                .build());
+
+                        currentSentenceIndex++;
+                        if (currentSentenceIndex < validSentences.size()) {
+                            wordCountInCurrentSentence = countWords(validSentences.get(currentSentenceIndex));
+                        } else {
+                            wordCountInCurrentSentence = Integer.MAX_VALUE;
+                        }
+                        matchedWords = 0;
+                        currentSentenceWords = new ArrayList<>();
+                    }
+                }
+
+                if (!currentSentenceWords.isEmpty()) {
+                    if (sentenceDetails.isEmpty()) {
+                        sentenceDetails.add(PresentationDTO.SentenceAnalysisDetail.builder()
+                                .sentence(referenceText.trim())
+                                .wordDetails(currentSentenceWords)
+                                .build());
+                    } else {
+                        sentenceDetails.get(sentenceDetails.size() - 1).getWordDetails().addAll(currentSentenceWords);
+                    }
+                }
+            } else {
+                sentenceDetails.add(PresentationDTO.SentenceAnalysisDetail.builder()
+                        .sentence(referenceText.trim())
+                        .wordDetails(wordDetails)
+                        .build());
+            }
+
             return AzureAnalysisDto.builder()
                     .durationSeconds(durationSeconds)
                     .spm(spm)
                     .speedEval(evaluateSpeed(spm))
                     .accuracyScore(assessment.getAccuracyScore())
                     .scriptMatchRate(assessment.getCompletenessScore())
-                    .wordDetails(wordDetails)
+                    .sentenceDetails(sentenceDetails)
                     .build();
 
         } else {
@@ -197,5 +263,10 @@ public class AzureSpeechService {
         if (spm <= 210) return "느려요";
         if (spm >= 260) return "빨라요";
         return "적당해요";
+    }
+
+    private int countWords(String text) {
+        if (text == null || text.trim().isEmpty()) return 0;
+        return text.trim().split("\\s+").length;
     }
 }

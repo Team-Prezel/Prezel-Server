@@ -77,12 +77,24 @@ public class PresentationDTO {
 
     @Getter
     @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SentenceAnalysisDetail {
+        @Schema(description = "문장/문단 텍스트")
+        private String sentence;
+
+        @Schema(description = "단어 분석 상세 리스트")
+        private List<WordAnalysisDetail> wordDetails;
+    }
+
+    @Getter
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class WordDetailResponse {
         private Long presentationId;
         private String audioUrl;
-        private List<WordAnalysisDetail> wordDetails;
+        private List<SentenceAnalysisDetail> sentenceDetails;
     }
 
     @Getter
@@ -98,7 +110,8 @@ public class PresentationDTO {
                 example = "Excellent"
         )
         private String status;
-        private String description;
+        private String mainFeedback;
+        private String subFeedback;
         private Double accuracy;
         private Long startTimeMs;
         private Long endTimeMs;
