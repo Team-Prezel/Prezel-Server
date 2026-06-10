@@ -83,6 +83,24 @@ public class PresentationDTO {
         @Schema(description = "문장/문단 텍스트")
         private String sentence;
 
+        @Schema(description = "해당 구간의 대표 상태 태그 (예: 발음, 불필요한 표현, 누락)")
+        private String status;
+
+        @Schema(description = "해당 구간의 메인 피드백")
+        private String mainFeedback;
+
+        @Schema(description = "해당 구간의 서브 피드백")
+        private String subFeedback;
+
+        @Schema(description = "해당 구간의 평균 정확도")
+        private Double accuracy;
+
+        @Schema(description = "해당 구간 시작 시간 (ms)")
+        private Long startTimeMs;
+
+        @Schema(description = "해당 구간 종료 시간 (ms)")
+        private Long endTimeMs;
+
         @Schema(description = "단어 분석 상세 리스트")
         private List<WordAnalysisDetail> wordDetails;
     }
@@ -110,8 +128,6 @@ public class PresentationDTO {
                 example = "Excellent"
         )
         private String status;
-        private String mainFeedback;
-        private String subFeedback;
         private Double accuracy;
         private Long startTimeMs;
         private Long endTimeMs;
