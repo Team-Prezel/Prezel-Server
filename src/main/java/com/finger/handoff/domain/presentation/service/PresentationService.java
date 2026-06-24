@@ -268,11 +268,21 @@ public class PresentationService {
     }
 
     @Transactional
-    public void deleteAnalysisResult(Long analysisResultId) {
-        AnalysisResult result = analysisResultRepository.findById(analysisResultId)
-                .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
-        if (result.getAudioUrl() != null) s3Service.deleteAudioFile(result.getAudioUrl());
-        analysisResultRepository.delete(result);
+    public void deletePresentation(Long presentationId, User user) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        for (AnalysisResult result : presentation.getAnalysisResults()) {
+            if (result.getAudioUrl() != null) {
+                s3Service.deleteAudioFile(result.getAudioUrl());
+            }
+        }
+
+        presentationRepository.delete(presentation);
     }
 
     @Transactional(readOnly = true)
