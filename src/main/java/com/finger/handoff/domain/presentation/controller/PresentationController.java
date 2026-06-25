@@ -176,18 +176,20 @@ public class PresentationController {
     }
 
     @Operation(
-            summary = "발표 분석 결과 삭제",
-            description = "특정 발표 분석 결과(음성 파일 및 분석 데이터)를 삭제합니다."
+            summary = "발표(분석 리포트) 삭제",
+            description = "특정 발표와 그에 누적된 모든 분석 결과(음성 파일 포함)를 전체 삭제합니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "분석 결과를 찾을 수 없음", content = @Content(
-                    mediaType = "application/json",
-                    examples = @ExampleObject(name = "A001", value = "{\"status\": 404, \"code\": \"A001\", \"data\": null, \"message\": \"분석 결과를 찾을 수 없습니다.\"}")))
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음")
     })
-    @DeleteMapping("/analyze/{analysisResultId}")
-    public ApiResponse<Void> cancelAnalysis(@Parameter(description = "삭제할 분석 결과 ID") @PathVariable Long analysisResultId) {
-        presentationService.deleteAnalysisResult(analysisResultId);
+    @DeleteMapping("/{presentationId}")
+    public ApiResponse<Void> deletePresentation(
+            @Parameter(description = "삭제할 발표 ID") @PathVariable Long presentationId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.deletePresentation(presentationId, customUserDetails.getUser());
         return ApiResponse.success();
     }
 
