@@ -2,6 +2,7 @@ package com.finger.handoff.domain.presentation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.badge.event.BadgeEvent;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO;
@@ -611,5 +612,40 @@ public class PresentationService {
                 .endDate(presentation.getPresentationDate())
                 .dates(presentation.getPracticeDates())
                 .build();
+    }
+
+
+    @Transactional(readOnly = true)
+    public JsonNode testPromptWithExistingData(Long presentationId, String instruction, GeminiService.PromptTestType type) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentation.getId());
+        if (historyResults.isEmpty()) {
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND);
+        }
+
+        AnalysisResult latestResult = historyResults.get(historyResults.size() - 1);
+
+        List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = null;
+        try {
+            if (latestResult.getWordDetailsJson() != null && !latestResult.getWordDetailsJson().equals("[]")) {
+                sentenceDetails = objectMapper.readValue(latestResult.getWordDetailsJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<List<PresentationDTO.SentenceAnalysisDetail>>() {});
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.error("테스트 중 단어 파싱 오류", e);
+        }
+
+        AzureSpeechService.AzureAnalysisDto mockAzureDto = AzureSpeechService.AzureAnalysisDto.builder()
+                .durationSeconds(latestResult.getDurationSeconds())
+                .spm(latestResult.getSpm())
+                .speedEval(latestResult.getSpeedEval())
+                .accuracyScore(latestResult.getAccuracyScore())
+                .scriptMatchRate(latestResult.getScriptMatchRate())
+                .sentenceDetails(sentenceDetails)
+                .build();
+
+        return geminiService.testSinglePrompt(mockAzureDto, presentation.getScript(), instruction, type);
     }
 }
