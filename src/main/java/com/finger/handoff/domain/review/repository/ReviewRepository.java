@@ -14,4 +14,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     boolean existsById(Long presentationId);
 
     void deleteAllByUserId(Long userId);
+
+    Optional<Review> findByPresentationId(Long presentationId);
 }

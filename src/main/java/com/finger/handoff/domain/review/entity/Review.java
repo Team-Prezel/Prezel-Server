@@ -40,4 +40,7 @@ public class Review {
         this.userId = userId;
         this.content = content;
     }
+    public void updateContent(String newContent) {
+        this.content = newContent;
+    }
 }
