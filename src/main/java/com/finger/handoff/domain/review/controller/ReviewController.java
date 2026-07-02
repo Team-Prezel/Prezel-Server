@@ -70,4 +70,29 @@ public class ReviewController {
         ReviewDto.Response response = reviewService.getReview(presentationId, customUserDetails.getUser().getId());
         return ApiResponse.success(response);
     }
+    @Operation(
+            summary = "발표 셀프 피드백(회고) 수정",
+            description = "작성된 셀프 피드백 내용을 수정합니다. 최대 200자까지 입력 가능합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회고 수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 검증 실패", content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(name = "R003", description = "글자 수 초과", value = "{\"status\": 400, \"code\": \"R003\", \"message\": \"셀프 피드백은 최대 200자까지 입력 가능합니다.\"}"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음", content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(name = "PR002", description = "타인의 회고에 접근", value = "{\"status\": 403, \"code\": \"PR002\", \"message\": \"해당 데이터에 접근할 권한이 없습니다.\"}"))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "대상을 찾을 수 없음", content = @Content(
+                    mediaType = "application/json",
+                    examples = @ExampleObject(name = "R001", description = "존재하지 않는 회고", value = "{\"status\": 404, \"code\": \"R001\", \"message\": \"존재하지 않는 회고입니다.\"}")))
+    })
+    @PatchMapping("/{presentationId}/review")
+    public ApiResponse<ReviewDto.Response> updateReview(
+            @Parameter(description = "회고를 수정할 발표의 ID") @PathVariable Long presentationId,
+            @Valid @RequestBody ReviewDto.Request request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        ReviewDto.Response response = reviewService.updateReview(presentationId, customUserDetails.getUser().getId(), request);
+        return ApiResponse.success(response);
+    }
 }

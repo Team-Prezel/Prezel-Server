@@ -8,6 +8,7 @@ import com.finger.handoff.domain.review.dto.ReviewDto;
 import com.finger.handoff.domain.review.repository.ReviewRepository;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -58,6 +59,24 @@ public class ReviewService {
     public ReviewDto.Response getReview(Long presentationId, Long userId) {
         Review review = reviewRepository.findByIdAndUserId(presentationId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
+
+        return ReviewDto.Response.from(review);
+    }
+
+    @Transactional
+    public ReviewDto.Response updateReview(Long presentationId, Long userId, ReviewDto.Request request) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        Review review = reviewRepository.findByPresentationId(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
+
+        if (!review.getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        // 4. 내용 업데이트 (엔티티 내부에 update 메서드 권장)
+        review.updateContent(request.content());
 
         return ReviewDto.Response.from(review);
     }
