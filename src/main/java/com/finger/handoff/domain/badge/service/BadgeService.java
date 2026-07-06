@@ -10,10 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,30 +20,33 @@ public class BadgeService {
 
     private final UserBadgeRepository userBadgeRepository;
 
-    /**
-     * 🏅 1. 유저의 전체 뱃지 목록 조회 (해금 여부 포함)
-     */
-    public List<BadgeDto.BadgeListResponse> getBadgeList(Long userId) {
-        // 1-1. 유저가 획득한 뱃지 리스트를 DB에서 조회
-        List<UserBadge> myUnlockedBadges = userBadgeRepository.findByUserId(userId);
 
-        // 1-2. O(1) 조회를 위해 Map 형태로 가공 (Key: BadgeType, Value: UserBadge)
-        Map<BadgeType, UserBadge> badgeMap = myUnlockedBadges.stream()
-                .collect(Collectors.toMap(UserBadge::getBadgeType, userBadge -> userBadge));
+    public List<BadgeDto.BadgeListResponse> getBadgeList(Long userId, String sort) {
 
-        // 1-3. 전체 뱃지 스펙(Enum)을 돌면서 획득 여부를 판별하여 DTO 조립
-        return Arrays.stream(BadgeType.values())
-                .map(type -> {
-                    boolean isUnlocked = badgeMap.containsKey(type);
-                    // UserBadge 엔티티에 생성일자(createdAt)가 정의되어 있다고 가정합니다.
-                    // 만약 없다면 null이나 별도 일자를 대입할 수 있습니다.
-                    java.time.LocalDateTime unlockedAt = isUnlocked ? badgeMap.get(type).getCreatedAt() : null;
+        // 1. sort 파라미터에 따라 레포지토리 메서드를 다르게 호출 (획득한 뱃지만 조회)
+        List<UserBadge> unlockedBadges = "acquired".equalsIgnoreCase(sort)
+                ? userBadgeRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                : userBadgeRepository.findByUserId(userId);
 
-                    return BadgeDto.BadgeListResponse.of(type, isUnlocked, unlockedAt);
-                })
+        // 2. 획득한 뱃지들을 먼저 DTO로 변환하여 리스트에 담음 (DB 정렬 순서 유지)
+        List<BadgeDto.BadgeListResponse> result = unlockedBadges.stream()
+                .map(badge -> BadgeDto.BadgeListResponse.of(badge.getBadgeType(), true, badge.getCreatedAt()))
                 .collect(Collectors.toList());
-    }
 
+        // 3. 빠른 조회를 위해 획득한 뱃지 타입만 Set으로 추출
+        Set<BadgeType> unlockedTypes = unlockedBadges.stream()
+                .map(UserBadge::getBadgeType)
+                .collect(Collectors.toSet());
+
+        // 4. 미획득 뱃지들을 찾아서 결과 리스트 맨 뒤에 추가
+        for (BadgeType type : BadgeType.values()) {
+            if (!unlockedTypes.contains(type)) {
+                result.add(BadgeDto.BadgeListResponse.of(type, false, null));
+            }
+        }
+
+        return result;
+    }
     /**
      * 🔍 2. 특정 뱃지 단건 상세 조회
      */
