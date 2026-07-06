@@ -97,8 +97,10 @@ public class PresentationService {
 
     private PresentationDTO.SummaryResponse executeAnalysis(Presentation presentation, MultipartFile audio) {
         File wavFile = null;
+        String audioUrl = null;
+
         try {
-            String audioUrl = s3Service.uploadAudioFile(audio);
+            audioUrl = s3Service.uploadAudioFile(audio);
             wavFile = audioConverter.convertToWav(audio);
 
             AzureSpeechService.AzureAnalysisDto azureResult =
@@ -213,12 +215,27 @@ public class PresentationService {
                     .growthGraph(growthGraph)
                     .build();
 
+        } catch (BusinessException e) {
+            rollbackS3File(audioUrl);
+            throw e;
         } catch (Exception e) {
+            rollbackS3File(audioUrl);
             log.error("발표 분석 중 오류 발생", e);
-            throw new RuntimeException("분석 중 오류 발생", e);
+            throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         } finally {
             if (wavFile != null && wavFile.exists()) {
                 wavFile.delete();
+            }
+        }
+    }
+
+    private void rollbackS3File(String audioUrl) {
+        if (audioUrl != null) {
+            try {
+                s3Service.deleteAudioFile(audioUrl);
+                log.info("에러 발생으로 인해 S3에 업로드된 녹음 파일을 롤백(삭제)했습니다: {}", audioUrl);
+            } catch (Exception s3Ex) {
+                log.error("S3 파일 롤백 삭제 중 오류가 발생했습니다. 대상 URL: {}", audioUrl, s3Ex);
             }
         }
     }
