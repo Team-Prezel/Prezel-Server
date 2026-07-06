@@ -31,6 +31,7 @@ public enum ErrorCode {
 
     VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, "V001", "분석할 음성을 인식하지 못했어요."),
     VOICE_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "V002", "분석 중 문제가 발생했어요."),
+    SILENT_AUDIO_DETECTED(HttpStatus.BAD_REQUEST, "V003", "녹음된 음성이 없거나 무음 파일입니다."),
 
     INVALID_SCRIPT_REQUEST(HttpStatus.BAD_REQUEST, "P001", "직접 입력한 대본과 대본 파일을 동시에 등록할 수 없습니다."),
     SCRIPT_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "P002", "대본 파일을 읽는 중 오류가 발생했습니다."),

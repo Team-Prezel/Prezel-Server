@@ -26,7 +26,7 @@ public class BadgeController {
 
     @Operation(
             summary = "나의 전체 뱃지 목록 조회",
-            description = "시스템의 모든 뱃지 목록과 함께, 현재 로그인한 사용자의 해금 여부 및 획득 일자를 조회합니다."
+            description = "시스템의 모든 뱃지 목록과 함께, 현재 로그인한 사용자의 해금 여부 및 획득 일자를 조회합니다. 정렬 기준을 쿼리 파라미터로 지정할 수 있습니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "뱃지 목록 조회 성공"),
@@ -36,9 +36,15 @@ public class BadgeController {
     })
     @GetMapping
     public ApiResponse<List<BadgeDto.BadgeListResponse>> getMyBadges(
+            @Parameter(description = "정렬 기준<br>" +
+                    "- `default`: 기본 정렬 (뱃지 ID 또는 우선순위 순)<br>" +
+                    "- `acquired`: 최근 획득순 (획득일자 내림차순)",
+                    example = "acquired")
+            @RequestParam(defaultValue = "default") String sort,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        List<BadgeDto.BadgeListResponse> response = badgeService.getBadgeList(customUserDetails.getUser().getId());
+        // 서비스 단으로 sort 파라미터를 함께 넘겨줍니다.
+        List<BadgeDto.BadgeListResponse> response = badgeService.getBadgeList(customUserDetails.getUser().getId(), sort);
         return ApiResponse.success(response);
     }
 

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO.WordAnalysisDetail;
+import com.finger.handoff.global.error.exception.BusinessException;
+import com.finger.handoff.global.error.model.ErrorCode;
 import com.microsoft.cognitiveservices.speech.*;
 import com.microsoft.cognitiveservices.speech.audio.AudioConfig;
 import lombok.Builder;
@@ -64,13 +66,27 @@ public class AzureSpeechService {
 
                 if (result.getReason() == ResultReason.RecognizedSpeech) {
                     return parseAnalysisResult(result, referenceText, hasScript);
+                } else if (result.getReason() == ResultReason.NoMatch) {
+                    NoMatchDetails noMatchDetails = NoMatchDetails.fromResult(result);
+                    log.warn("Azure 음성 인식 실패 (무음 또는 음성 감지 불가): {}", noMatchDetails.getReason());
+
+                    if (noMatchDetails.getReason() == NoMatchReason.InitialSilenceTimeout) {
+                        log.warn("무음 파일이 감지되었습니다. (InitialSilenceTimeout)");
+                        throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+                    } else {
+                        log.warn("음성을 인식할 수 없습니다. (NotRecognized)");
+                        throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
+                    }
                 } else {
-                    throw new RuntimeException("Azure 음성 인식에 실패했습니다.");
+                    log.error("Azure 음성 인식 실패 (Reason: {})", result.getReason());
+                    throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
                 }
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Azure API 호출 중 에러 발생", e);
-            throw new RuntimeException("음성 분석 중 오류가 발생했습니다.", e);
+            log.error("Azure API 호출 및 분석 중 에러 발생", e);
+            throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         }
     }
 
