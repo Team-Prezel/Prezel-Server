@@ -49,9 +49,23 @@ public class PresentationService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public PresentationDTO.SummaryResponse analyzePresentation(Presentation presentation, MultipartFile audio) {
+    public PresentationDTO.SummaryResponse analyzePresentation(PresentationDTO.PresentationRequest request,String finalScript, User user) {
+        LocalDate presentationDate = request.getDate();
 
-        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
+        Presentation presentation = Presentation.builder()
+                .user(user)
+                .title(request.getName())
+                .presentationDate(presentationDate)
+                .type(request.getType())
+                .purpose(request.getPurpose())
+                .style(request.getStyle())
+                .audience(request.getAudience())
+                .script(finalScript)
+                .build();
+
+        Presentation savedPresentation = presentationRepository.save(presentation);
+
+        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, request.getAudio());
 
         eventPublisher.publishEvent(new BadgeEvent(presentation.getUser().getId(), "PRESENTATION_CREATED"));
 
@@ -310,6 +324,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), today);
 
         return presentations.stream()
+                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -321,6 +336,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateLessThanOrderByPresentationDateDesc(user.getId(), today);
 
         return presentations.stream()
+                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -481,6 +497,11 @@ public class PresentationService {
         List<PresentationDTO.MainScreenResponse> responses = new ArrayList<>();
 
         for (Presentation presentation : presentations) {
+
+            if (presentation.getAnalysisResults() == null || presentation.getAnalysisResults().isEmpty()) {
+                continue;
+            }
+
             LocalDate targetDate = presentation.getPresentationDate();
 
             long days = ChronoUnit.DAYS.between(today, targetDate);

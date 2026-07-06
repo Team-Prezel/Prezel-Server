@@ -88,22 +88,8 @@ public class PresentationController {
             finalScript = request.getScript();
         }
 
-        LocalDate presentationDate = request.getDate();
 
-        Presentation presentation = Presentation.builder()
-                .user(customUserDetails.getUser())
-                .title(request.getName())
-                .presentationDate(presentationDate)
-                .type(request.getType())
-                .purpose(request.getPurpose())
-                .style(request.getStyle())
-                .audience(request.getAudience())
-                .script(finalScript)
-                .build();
-
-        Presentation savedPresentation = presentationRepository.save(presentation);
-
-        PresentationDTO.SummaryResponse response = presentationService.analyzePresentation(savedPresentation, request.getAudio());
+        PresentationDTO.SummaryResponse response = presentationService.analyzePresentation(request, finalScript, customUserDetails.getUser());
         return ApiResponse.success(response);
     }
 
