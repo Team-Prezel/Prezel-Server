@@ -49,9 +49,23 @@ public class PresentationService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public PresentationDTO.SummaryResponse analyzePresentation(Presentation presentation, MultipartFile audio) {
+    public PresentationDTO.SummaryResponse analyzePresentation(PresentationDTO.PresentationRequest request,String finalScript, User user) {
+        LocalDate presentationDate = request.getDate();
 
-        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, audio);
+        Presentation presentation = Presentation.builder()
+                .user(user)
+                .title(request.getName())
+                .presentationDate(presentationDate)
+                .type(request.getType())
+                .purpose(request.getPurpose())
+                .style(request.getStyle())
+                .audience(request.getAudience())
+                .script(finalScript)
+                .build();
+
+        Presentation savedPresentation = presentationRepository.save(presentation);
+
+        PresentationDTO.SummaryResponse response = executeAnalysis(presentation, request.getAudio());
 
         eventPublisher.publishEvent(new BadgeEvent(presentation.getUser().getId(), "PRESENTATION_CREATED"));
 
@@ -97,8 +111,10 @@ public class PresentationService {
 
     private PresentationDTO.SummaryResponse executeAnalysis(Presentation presentation, MultipartFile audio) {
         File wavFile = null;
+        String audioUrl = null;
+
         try {
-            String audioUrl = s3Service.uploadAudioFile(audio);
+            audioUrl = s3Service.uploadAudioFile(audio);
             wavFile = audioConverter.convertToWav(audio);
 
             AzureSpeechService.AzureAnalysisDto azureResult =
@@ -213,12 +229,27 @@ public class PresentationService {
                     .growthGraph(growthGraph)
                     .build();
 
+        } catch (BusinessException e) {
+            rollbackS3File(audioUrl);
+            throw e;
         } catch (Exception e) {
+            rollbackS3File(audioUrl);
             log.error("발표 분석 중 오류 발생", e);
-            throw new RuntimeException("분석 중 오류 발생", e);
+            throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         } finally {
             if (wavFile != null && wavFile.exists()) {
                 wavFile.delete();
+            }
+        }
+    }
+
+    private void rollbackS3File(String audioUrl) {
+        if (audioUrl != null) {
+            try {
+                s3Service.deleteAudioFile(audioUrl);
+                log.info("에러 발생으로 인해 S3에 업로드된 녹음 파일을 롤백(삭제)했습니다: {}", audioUrl);
+            } catch (Exception s3Ex) {
+                log.error("S3 파일 롤백 삭제 중 오류가 발생했습니다. 대상 URL: {}", audioUrl, s3Ex);
             }
         }
     }
@@ -293,6 +324,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), today);
 
         return presentations.stream()
+                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -304,6 +336,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateLessThanOrderByPresentationDateDesc(user.getId(), today);
 
         return presentations.stream()
+                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -464,6 +497,11 @@ public class PresentationService {
         List<PresentationDTO.MainScreenResponse> responses = new ArrayList<>();
 
         for (Presentation presentation : presentations) {
+
+            if (presentation.getAnalysisResults() == null || presentation.getAnalysisResults().isEmpty()) {
+                continue;
+            }
+
             LocalDate targetDate = presentation.getPresentationDate();
 
             long days = ChronoUnit.DAYS.between(today, targetDate);
