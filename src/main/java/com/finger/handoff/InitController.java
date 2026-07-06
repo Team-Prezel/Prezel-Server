@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff;
 
 import com.finger.handoff.domain.terms.entity.Terms;
@@ -40,4 +41,4 @@ public class InitController {
 
         return ResponseEntity.ok("운영 DB 약관 데이터 및 구글 사이트 링크 세팅 완벽하게 완료!");
     }
-}
+}*/
