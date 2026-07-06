@@ -6,7 +6,7 @@ import lombok.Setter;
 import org.springframework.web.multipart.MultipartFile;
 
 @Getter
-@Setter // 🌟 Multipart 데이터를 바인딩하려면 Setter가 필요합니다!
+@Setter
 @NoArgsConstructor
 public class UserProfileRequest {
 
