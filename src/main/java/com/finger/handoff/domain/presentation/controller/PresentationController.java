@@ -255,6 +255,25 @@ public class PresentationController {
         return ApiResponse.success(presentationService.getPracticeRecords(presentationId, customUserDetails.getUser()));
     }
 
+    @Operation(
+            summary = "대본 내용만 단독 수정 (교정 적용)",
+            description = "AI 분석이나 재녹음 없이, 단순히 기존 발표의 대본 텍스트만 수정하여 저장합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "대본 수정 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "발표를 찾을 수 없음")
+    })
+    @PatchMapping("/{presentationId}/script")
+    public ApiResponse<Void> updateScriptOnly(
+            @Parameter(description = "대본을 수정할 발표 ID") @PathVariable Long presentationId,
+            @RequestBody PresentationDTO.ScriptUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.updateScriptOnly(presentationId, request.getScript(), customUserDetails.getUser());
+        return ApiResponse.success();
+    }
+
     /*@Operation(
             summary = "특정 분석 결과 요약 상세 조회",
             description = "분석 결과 ID(analysisResultId)를 통해 특정 회차의 요약 리포트를 조회합니다."

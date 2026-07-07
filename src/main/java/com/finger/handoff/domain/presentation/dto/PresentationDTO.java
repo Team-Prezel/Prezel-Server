@@ -233,4 +233,10 @@ public class PresentationDTO {
         private LocalDate endDate;
         private List<LocalDate> dates;
     }
+
+    @Getter
+    @Setter
+    public static class ScriptUpdateRequest {
+        private String script;
+    }
 }
