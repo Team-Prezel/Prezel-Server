@@ -76,6 +76,7 @@ public class PresentationDTO {
     }
 
     @Getter
+    @Setter
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -116,6 +117,7 @@ public class PresentationDTO {
     }
 
     @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor

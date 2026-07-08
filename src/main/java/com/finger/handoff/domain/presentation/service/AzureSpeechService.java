@@ -231,6 +231,7 @@ public class AzureSpeechService {
             } else {
                 sentenceDetails.add(buildSentenceDetail(referenceText.trim(), wordDetails));
             }
+            applyTopNRelativeEvaluation(sentenceDetails);
 
             return AzureAnalysisDto.builder()
                     .durationSeconds(durationSeconds)
@@ -325,5 +326,67 @@ public class AzureSpeechService {
                 .endTimeMs(endMs)
                 .wordDetails(words)
                 .build();
+    }
+
+    private void applyTopNRelativeEvaluation(List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails) {
+        if (sentenceDetails == null || sentenceDetails.isEmpty()) return;
+
+        List<PresentationDTO.SentenceAnalysisDetail> bestCandidates = new ArrayList<>();
+
+        for (PresentationDTO.SentenceAnalysisDetail sentence : sentenceDetails) {
+            boolean hasError = false;
+
+            if (sentence.getWordDetails() != null) {
+                for (PresentationDTO.WordAnalysisDetail word : sentence.getWordDetails()) {
+                    String st = word.getStatus();
+                    if ("Stutter".equals(st) || "Insertion".equals(st) ||
+                            "Omission".equals(st) || "Mispronunciation".equals(st)) {
+                        hasError = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasError && sentence.getAccuracy() != null && sentence.getAccuracy() >= 90.0) {
+                bestCandidates.add(sentence);
+            } else {
+                demoteToGood(sentence);
+            }
+        }
+
+        bestCandidates.sort((a, b) -> Double.compare(b.getAccuracy(), a.getAccuracy()));
+
+        int maxExcellentCount = Math.min(3, Math.max(1, sentenceDetails.size() / 4));
+
+        for (int i = 0; i < bestCandidates.size(); i++) {
+            PresentationDTO.SentenceAnalysisDetail candidate = bestCandidates.get(i);
+
+            if (i < maxExcellentCount) {
+                candidate.setStatus("Excellent");
+                if (candidate.getWordDetails() != null) {
+                    for (PresentationDTO.WordAnalysisDetail word : candidate.getWordDetails()) {
+                        if ("Good".equals(word.getStatus()) || "Excellent".equals(word.getStatus())) {
+                            word.setStatus("Excellent");
+                        }
+                    }
+                }
+            } else {
+                demoteToGood(candidate);
+            }
+        }
+    }
+
+
+    private void demoteToGood(PresentationDTO.SentenceAnalysisDetail sentence) {
+        if ("Excellent".equals(sentence.getStatus())) {
+            sentence.setStatus("Good");
+        }
+        if (sentence.getWordDetails() != null) {
+            for (PresentationDTO.WordAnalysisDetail word : sentence.getWordDetails()) {
+                if ("Excellent".equals(word.getStatus())) {
+                    word.setStatus("Good");
+                }
+            }
+        }
     }
 }
