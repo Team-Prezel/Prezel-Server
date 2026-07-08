@@ -380,7 +380,6 @@ public class AzureSpeechService {
             PresentationDTO.SentenceAnalysisDetail candidate = bestCandidates.get(i);
 
             if (i < maxExcellentCount) {
-                candidate.setStatus("Excellent");
                 if (candidate.getWordDetails() != null) {
                     for (PresentationDTO.WordAnalysisDetail word : candidate.getWordDetails()) {
                         if ("Good".equals(word.getStatus()) || "Excellent".equals(word.getStatus())) {
@@ -396,9 +395,6 @@ public class AzureSpeechService {
 
 
     private void demoteToGood(PresentationDTO.SentenceAnalysisDetail sentence) {
-        if ("Excellent".equals(sentence.getStatus())) {
-            sentence.setStatus("Good");
-        }
         if (sentence.getWordDetails() != null) {
             for (PresentationDTO.WordAnalysisDetail word : sentence.getWordDetails()) {
                 if ("Excellent".equals(word.getStatus())) {
