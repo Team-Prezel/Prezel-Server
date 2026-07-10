@@ -16,8 +16,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.concurrent.CountDownLatch;
 
 @Slf4j
 @Service
@@ -61,26 +62,50 @@ public class AzureSpeechService {
                     pronunciationConfig.applyTo(recognizer);
                 }
 
-                Future<SpeechRecognitionResult> task = recognizer.recognizeOnceAsync();
-                SpeechRecognitionResult result = task.get();
+                List<String> jsonResults = Collections.synchronizedList(new ArrayList<>());
+                List<Double> accuracyScores = Collections.synchronizedList(new ArrayList<>());
+                List<Double> completenessScores = Collections.synchronizedList(new ArrayList<>());
 
-                if (result.getReason() == ResultReason.RecognizedSpeech) {
-                    return parseAnalysisResult(result, referenceText, hasScript);
-                } else if (result.getReason() == ResultReason.NoMatch) {
-                    NoMatchDetails noMatchDetails = NoMatchDetails.fromResult(result);
-                    log.warn("Azure 음성 인식 실패 (무음 또는 음성 감지 불가): {}", noMatchDetails.getReason());
+                CountDownLatch latch = new CountDownLatch(1);
 
-                    if (noMatchDetails.getReason() == NoMatchReason.InitialSilenceTimeout) {
-                        log.warn("무음 파일이 감지되었습니다. (InitialSilenceTimeout)");
-                        throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
-                    } else {
-                        log.warn("음성을 인식할 수 없습니다. (NotRecognized)");
-                        throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
+                recognizer.recognized.addEventListener((s, e) -> {
+                    if (e.getResult().getReason() == ResultReason.RecognizedSpeech) {
+                        String json = e.getResult().getProperties().getProperty(PropertyId.SpeechServiceResponse_JsonResult);
+                        if (json != null) {
+                            jsonResults.add(json);
+                        }
+                        if (hasScript) {
+                            PronunciationAssessmentResult assessment = PronunciationAssessmentResult.fromResult(e.getResult());
+                            if (assessment != null) {
+                                accuracyScores.add(assessment.getAccuracyScore());
+                                completenessScores.add(assessment.getCompletenessScore());
+                            }
+                        }
                     }
-                } else {
-                    log.error("Azure 음성 인식 실패 (Reason: {})", result.getReason());
-                    throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
+                });
+
+                recognizer.sessionStopped.addEventListener((s, e) -> {
+                    log.info("Azure 음성 연속 인식 완료 (SessionStopped)");
+                    latch.countDown();
+                });
+
+                recognizer.canceled.addEventListener((s, e) -> {
+                    log.warn("Azure 음성 인식 취소됨 (Canceled)");
+                    latch.countDown();
+                });
+
+                recognizer.startContinuousRecognitionAsync().get();
+
+                latch.await();
+
+                recognizer.stopContinuousRecognitionAsync().get();
+
+                if (jsonResults.isEmpty()) {
+                    log.warn("인식된 음성이 없습니다. (무음 파일이거나 인식 실패)");
+                    throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
                 }
+
+                return parseAnalysisResultContinuous(jsonResults, accuracyScores, completenessScores, referenceText, hasScript);
             }
         } catch (BusinessException e) {
             throw e;
@@ -90,42 +115,21 @@ public class AzureSpeechService {
         }
     }
 
-    private AzureAnalysisDto parseAnalysisResult(SpeechRecognitionResult result, String referenceText, boolean hasScript) throws Exception {
-        String jsonResult = result.getProperties().getProperty(PropertyId.SpeechServiceResponse_JsonResult);
+    private AzureAnalysisDto parseAnalysisResultContinuous(
+            List<String> jsonResults,
+            List<Double> accuracyScores,
+            List<Double> completenessScores,
+            String referenceText,
+            boolean hasScript) throws Exception {
+
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(jsonResult);
-        JsonNode wordsNode = rootNode.path("NBest").get(0).path("Words");
+        List<WordAnalysisDetail> allWordDetails = new ArrayList<>();
 
         long totalDurationDocs = 0;
         int spokenCharCount = 0;
 
-        if (wordsNode.isArray() && wordsNode.size() > 0) {
-            for (int i = wordsNode.size() - 1; i >= 0; i--) {
-                JsonNode lastValidWord = wordsNode.get(i);
-                long offset = lastValidWord.path("Offset").asLong(0);
-                long duration = lastValidWord.path("Duration").asLong(0);
-                if (offset > 0 || duration > 0) {
-                    totalDurationDocs = offset + duration;
-                    break;
-                }
-            }
-
-            for (JsonNode wordNode : wordsNode) {
-                String errorType = wordNode.path("PronunciationAssessment").path("ErrorType").asText("None");
-                if (!errorType.equals("Omission")) {
-                    spokenCharCount += wordNode.path("Word").asText("").length();
-                }
-            }
-        }
-
-        double durationSecondsDouble = totalDurationDocs / 10000000.0;
-        int durationSeconds = (int) Math.round(durationSecondsDouble);
-
+        List<String> origList = new ArrayList<>();
         if (hasScript) {
-            PronunciationAssessmentResult assessment = PronunciationAssessmentResult.fromResult(result);
-            int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
-
-            List<String> origList = new ArrayList<>();
             String pattern = "(?<=(니다|요|까)[.!?]?)\\s+|(?<=[.!?])\\s+|\\r?\\n+";
             String[] splits = referenceText.trim().split(pattern);
             for(String s : splits) {
@@ -133,101 +137,127 @@ public class AzureSpeechService {
                     origList.add(s.trim());
                 }
             }
+        }
 
-            List<WordAnalysisDetail> wordDetails = new ArrayList<>();
-            String previousWord = "";
+        java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap = new java.util.HashMap<>();
+        int origIdx = 0;
+        int wordCountInOrig = (origList.isEmpty()) ? 0 : countWords(origList.get(origIdx));
+        int matched = 0;
+        String previousWord = "";
 
-            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap = new java.util.HashMap<>();
-            int origIdx = 0;
-            int wordCountInOrig = (origList.isEmpty()) ? 0 : countWords(origList.get(origIdx));
-            int matched = 0;
+        for (String json : jsonResults) {
+            JsonNode rootNode = mapper.readTree(json);
+            JsonNode nBest = rootNode.path("NBest");
+            if (nBest.isMissingNode() || nBest.size() == 0) continue;
 
-            if (wordsNode.isArray()) {
-                for (JsonNode wordNode : wordsNode) {
-                    String word = wordNode.path("Word").asText("");
-                    long offset = wordNode.path("Offset").asLong(0);
-                    long duration = wordNode.path("Duration").asLong(0);
+            JsonNode wordsNode = nBest.get(0).path("Words");
+            if (!wordsNode.isArray() || wordsNode.size() == 0) continue;
 
-                    JsonNode assessmentNode = wordNode.path("PronunciationAssessment");
-                    String errorType = assessmentNode.path("ErrorType").asText("None");
-                    double accuracy = assessmentNode.path("AccuracyScore").asDouble(0.0);
-
-                    if (offset == 0 && duration == 0 && !errorType.equals("Omission")) {
-                        continue;
-                    }
-
-                    long startMs = offset / 10000;
-                    long endMs = (offset + duration) / 10000;
-
-                    boolean isStutter = false;
-                    if (errorType.equals("Insertion") && word.equals(previousWord)) {
-                        isStutter = true;
-                    }
-
-                    String statusCode;
-                    if (isStutter) {
-                        statusCode = "Stutter";
-                    } else if (errorType.equals("Insertion")) {
-                        statusCode = "Insertion";
-                    } else if (errorType.equals("Omission")) {
-                        statusCode = "Omission";
-                    } else if (errorType.equals("Mispronunciation")) {
-                        statusCode = "Mispronunciation";
-                    } else {
-                        if (accuracy >= 90.0) {
-                            statusCode = "Excellent";
-                        } else {
-                            statusCode = "Good";
-                        }
-                    }
-
-                    WordAnalysisDetail wd = WordAnalysisDetail.builder()
-                            .word(word)
-                            .status(statusCode)
-                            .accuracy(accuracy)
-                            .startTimeMs(startMs)
-                            .endTimeMs(endMs)
-                            .build();
-
-                    wordDetails.add(wd);
-
-                    if (!origList.isEmpty()) {
-                        wordToOrigIdxMap.put(wd, origIdx);
-                        if (!"Insertion".equals(wd.getStatus())) {
-                            matched++;
-                            if (matched >= wordCountInOrig) {
-                                origIdx++;
-                                if (origIdx < origList.size()) {
-                                    wordCountInOrig = countWords(origList.get(origIdx));
-                                } else {
-                                    wordCountInOrig = Integer.MAX_VALUE;
-                                }
-                                matched = 0;
-                            }
-                        }
-                    }
-
-                    if (!errorType.equals("Insertion")) {
-                        previousWord = word;
-                    }
+            for (int i = wordsNode.size() - 1; i >= 0; i--) {
+                JsonNode lastValidWord = wordsNode.get(i);
+                long offset = lastValidWord.path("Offset").asLong(0);
+                long duration = lastValidWord.path("Duration").asLong(0);
+                if (offset > 0 || duration > 0) {
+                    totalDurationDocs = Math.max(totalDurationDocs, offset + duration);
+                    break;
                 }
             }
 
-            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(wordDetails, wordToOrigIdxMap, origList);
+            for (JsonNode wordNode : wordsNode) {
+                String word = wordNode.path("Word").asText("");
+                long offset = wordNode.path("Offset").asLong(0);
+                long duration = wordNode.path("Duration").asLong(0);
 
+                JsonNode assessmentNode = wordNode.path("PronunciationAssessment");
+                String errorType = assessmentNode.path("ErrorType").asText("None");
+                double accuracy = assessmentNode.path("AccuracyScore").asDouble(0.0);
+
+                if (!errorType.equals("Omission")) {
+                    spokenCharCount += word.length();
+                }
+
+                if (offset == 0 && duration == 0 && !errorType.equals("Omission")) {
+                    continue;
+                }
+
+                long startMs = offset / 10000;
+                long endMs = (offset + duration) / 10000;
+
+                boolean isStutter = false;
+                if (errorType.equals("Insertion") && word.equals(previousWord)) {
+                    isStutter = true;
+                }
+
+                String statusCode;
+                if (isStutter) {
+                    statusCode = "Stutter";
+                } else if (errorType.equals("Insertion")) {
+                    statusCode = "Insertion";
+                } else if (errorType.equals("Omission")) {
+                    statusCode = "Omission";
+                } else if (errorType.equals("Mispronunciation")) {
+                    statusCode = "Mispronunciation";
+                } else {
+                    if (accuracy >= 90.0) {
+                        statusCode = "Excellent";
+                    } else {
+                        statusCode = "Good";
+                    }
+                }
+
+                WordAnalysisDetail wd = WordAnalysisDetail.builder()
+                        .word(word)
+                        .status(statusCode)
+                        .accuracy(accuracy)
+                        .startTimeMs(startMs)
+                        .endTimeMs(endMs)
+                        .build();
+
+                allWordDetails.add(wd);
+
+                if (hasScript && !origList.isEmpty()) {
+                    wordToOrigIdxMap.put(wd, origIdx);
+                    if (!"Insertion".equals(wd.getStatus())) {
+                        matched++;
+                        if (matched >= wordCountInOrig) {
+                            origIdx++;
+                            if (origIdx < origList.size()) {
+                                wordCountInOrig = countWords(origList.get(origIdx));
+                            } else {
+                                wordCountInOrig = Integer.MAX_VALUE;
+                            }
+                            matched = 0;
+                        }
+                    }
+                }
+                if (!errorType.equals("Insertion")) {
+                    previousWord = word;
+                }
+            }
+        }
+
+        allWordDetails.sort(java.util.Comparator.comparingLong(WordAnalysisDetail::getStartTimeMs));
+
+        double durationSecondsDouble = totalDurationDocs / 10000000.0;
+        int durationSeconds = (int) Math.round(durationSecondsDouble);
+        int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
+
+        if (hasScript) {
+            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(allWordDetails, wordToOrigIdxMap, origList);
             applyTopNRelativeEvaluation(sentenceDetails);
+
+            double finalAccuracy = accuracyScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+            double finalCompleteness = completenessScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
 
             return AzureAnalysisDto.builder()
                     .durationSeconds(durationSeconds)
                     .spm(spm)
                     .speedEval(evaluateSpeed(spm))
-                    .accuracyScore(assessment.getAccuracyScore())
-                    .scriptMatchRate(assessment.getCompletenessScore())
+                    .accuracyScore(finalAccuracy)
+                    .scriptMatchRate(finalCompleteness)
                     .sentenceDetails(sentenceDetails)
                     .build();
-
         } else {
-            int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
             return AzureAnalysisDto.builder()
                     .durationSeconds(durationSeconds)
                     .spm(spm)
