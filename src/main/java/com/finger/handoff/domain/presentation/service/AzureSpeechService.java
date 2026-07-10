@@ -263,30 +263,36 @@ public class AzureSpeechService {
                 shouldSplit = true;
             }
 
-            if (i < wordDetails.size() - 1) {
-                WordAnalysisDetail nextWord = wordDetails.get(i + 1);
-                long silenceGap = nextWord.getStartTimeMs() - currentWord.getEndTimeMs();
-                if (silenceGap >= 700) {
-                    shouldSplit = true;
+            if (!"Omission".equals(currentWord.getStatus())) {
+                WordAnalysisDetail nextSpokenWord = null;
+                for (int j = i + 1; j < wordDetails.size(); j++) {
+                    if (!"Omission".equals(wordDetails.get(j).getStatus())) {
+                        nextSpokenWord = wordDetails.get(j);
+                        break;
+                    }
+                }
+
+                if (nextSpokenWord != null) {
+                    long silenceGap = nextSpokenWord.getStartTimeMs() - currentWord.getEndTimeMs();
+                    if (silenceGap >= 700) {
+                        shouldSplit = true;
+                    }
                 }
             }
 
             if (shouldSplit && !currentChunk.isEmpty()) {
-                // 💡 [수정] 파라미터 3개 전달
                 sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
                 currentChunk = new ArrayList<>();
             }
         }
 
         if (!currentChunk.isEmpty()) {
-            // 💡 [수정] 파라미터 3개 전달
             sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
         }
 
         return sentenceDetails;
     }
 
-    // 💡 [수정 2] 파라미터 3개 받도록 수정 및 guideScript 생성 로직 부활
     private PresentationDTO.SentenceAnalysisDetail buildSentenceDetailFromWords(
             List<WordAnalysisDetail> words,
             java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap,
@@ -300,14 +306,8 @@ public class AzureSpeechService {
         }
 
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < words.size(); i++) {
-            sb.append(words.get(i).getWord());
-            if (i < words.size() - 1) sb.append(" ");
-        }
-        String sentenceText = sb.toString();
-
-        long startMs = words.get(0).getStartTimeMs();
-        long endMs = words.get(words.size() - 1).getEndTimeMs();
+        long startMs = -1;
+        long endMs = 0;
         double totalAccuracy = 0.0;
 
         boolean hasStutter = false;
@@ -315,14 +315,27 @@ public class AzureSpeechService {
         boolean hasMispronunciation = false;
         boolean hasOmission = false;
 
-        for (WordAnalysisDetail w : words) {
+        for (int i = 0; i < words.size(); i++) {
+            WordAnalysisDetail w = words.get(i);
+            sb.append(w.getWord());
+            if (i < words.size() - 1) sb.append(" ");
+
             totalAccuracy += w.getAccuracy();
+
             if ("Stutter".equals(w.getStatus())) hasStutter = true;
             if ("Insertion".equals(w.getStatus())) hasInsertion = true;
             if ("Mispronunciation".equals(w.getStatus())) hasMispronunciation = true;
             if ("Omission".equals(w.getStatus())) hasOmission = true;
+
+            if (!"Omission".equals(w.getStatus())) {
+                if (startMs == -1) startMs = w.getStartTimeMs();
+                endMs = Math.max(endMs, w.getEndTimeMs());
+            }
         }
 
+        if (startMs == -1) startMs = 0;
+
+        String sentenceText = sb.toString();
         double avgAccuracy = totalAccuracy / words.size();
         String statusTag;
         String mainFeedback;
