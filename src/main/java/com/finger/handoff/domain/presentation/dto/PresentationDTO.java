@@ -76,6 +76,7 @@ public class PresentationDTO {
     }
 
     @Getter
+    @Setter
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -91,6 +92,9 @@ public class PresentationDTO {
 
         @Schema(description = "해당 구간의 서브 피드백")
         private String subFeedback;
+
+        @Schema(description = "아코디언용 구간 안내 스크립트 (앞/뒤 1문장 포함 원본 텍스트)")
+        private String guideScript;
 
         @Schema(description = "해당 구간의 평균 정확도")
         private Double accuracy;
@@ -116,6 +120,7 @@ public class PresentationDTO {
     }
 
     @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -232,5 +237,11 @@ public class PresentationDTO {
         private LocalDate startDate;
         private LocalDate endDate;
         private List<LocalDate> dates;
+    }
+
+    @Getter
+    @Setter
+    public static class ScriptUpdateRequest {
+        private String script;
     }
 }
