@@ -125,8 +125,22 @@ public class AzureSpeechService {
             PronunciationAssessmentResult assessment = PronunciationAssessmentResult.fromResult(result);
             int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
 
+            List<String> origList = new ArrayList<>();
+            String pattern = "(?<=(니다|요|까)[.!?]?)\\s+|(?<=[.!?])\\s+|\\r?\\n+";
+            String[] splits = referenceText.trim().split(pattern);
+            for(String s : splits) {
+                if(!s.trim().isEmpty()) {
+                    origList.add(s.trim());
+                }
+            }
+
             List<WordAnalysisDetail> wordDetails = new ArrayList<>();
             String previousWord = "";
+
+            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap = new java.util.HashMap<>();
+            int origIdx = 0;
+            int wordCountInOrig = (origList.isEmpty()) ? 0 : countWords(origList.get(origIdx));
+            int matched = 0;
 
             if (wordsNode.isArray()) {
                 for (JsonNode wordNode : wordsNode) {
@@ -167,13 +181,31 @@ public class AzureSpeechService {
                         }
                     }
 
-                    wordDetails.add(WordAnalysisDetail.builder()
+                    WordAnalysisDetail wd = WordAnalysisDetail.builder()
                             .word(word)
                             .status(statusCode)
                             .accuracy(accuracy)
                             .startTimeMs(startMs)
                             .endTimeMs(endMs)
-                            .build());
+                            .build();
+
+                    wordDetails.add(wd);
+
+                    if (!origList.isEmpty()) {
+                        wordToOrigIdxMap.put(wd, origIdx);
+                        if (!"Insertion".equals(wd.getStatus())) {
+                            matched++;
+                            if (matched >= wordCountInOrig) {
+                                origIdx++;
+                                if (origIdx < origList.size()) {
+                                    wordCountInOrig = countWords(origList.get(origIdx));
+                                } else {
+                                    wordCountInOrig = Integer.MAX_VALUE;
+                                }
+                                matched = 0;
+                            }
+                        }
+                    }
 
                     if (!errorType.equals("Insertion")) {
                         previousWord = word;
@@ -181,7 +213,7 @@ public class AzureSpeechService {
                 }
             }
 
-            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(wordDetails);
+            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(wordDetails, wordToOrigIdxMap, origList);
 
             applyTopNRelativeEvaluation(sentenceDetails);
 
@@ -204,7 +236,11 @@ public class AzureSpeechService {
         }
     }
 
-    private List<PresentationDTO.SentenceAnalysisDetail> splitWordsIntoNaturalSentences(List<WordAnalysisDetail> wordDetails) {
+    private List<PresentationDTO.SentenceAnalysisDetail> splitWordsIntoNaturalSentences(
+            List<WordAnalysisDetail> wordDetails,
+            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap,
+            List<String> origList) {
+
         List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = new ArrayList<>();
         if (wordDetails == null || wordDetails.isEmpty()) return sentenceDetails;
 
@@ -215,7 +251,7 @@ public class AzureSpeechService {
             String text = currentWord.getWord();
 
             if (!currentChunk.isEmpty() && isConjunction(text)) {
-                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk));
+                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
                 currentChunk = new ArrayList<>();
             }
 
@@ -236,35 +272,26 @@ public class AzureSpeechService {
             }
 
             if (shouldSplit && !currentChunk.isEmpty()) {
-                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk));
+                // 💡 [수정] 파라미터 3개 전달
+                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
                 currentChunk = new ArrayList<>();
             }
         }
 
         if (!currentChunk.isEmpty()) {
-            sentenceDetails.add(buildSentenceDetailFromWords(currentChunk));
+            // 💡 [수정] 파라미터 3개 전달
+            sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
         }
 
         return sentenceDetails;
     }
 
-    private boolean isConjunction(String word) {
-        if (word == null) return false;
-        String cleanWord = word.replaceAll("[^가-힣]", "");
-        return cleanWord.equals("그리고") || cleanWord.equals("그래서") ||
-                cleanWord.equals("하지만") || cleanWord.equals("그러나") ||
-                cleanWord.equals("다음으로") || cleanWord.equals("또한") ||
-                cleanWord.equals("반면에") || cleanWord.equals("결과적으로");
-    }
+    // 💡 [수정 2] 파라미터 3개 받도록 수정 및 guideScript 생성 로직 부활
+    private PresentationDTO.SentenceAnalysisDetail buildSentenceDetailFromWords(
+            List<WordAnalysisDetail> words,
+            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap,
+            List<String> origList) {
 
-    private boolean isSentenceEnding(String word) {
-        if (word == null) return false;
-        return word.endsWith(".") || word.endsWith("?") || word.endsWith("!") ||
-                word.endsWith("다") || word.endsWith("요") || word.endsWith("죠") ||
-                word.endsWith("까") || word.endsWith("니다") || word.endsWith("아") || word.endsWith("어");
-    }
-
-    private PresentationDTO.SentenceAnalysisDetail buildSentenceDetailFromWords(List<WordAnalysisDetail> words) {
         if (words == null || words.isEmpty()) {
             return PresentationDTO.SentenceAnalysisDetail.builder()
                     .sentence("")
@@ -297,10 +324,37 @@ public class AzureSpeechService {
         }
 
         double avgAccuracy = totalAccuracy / words.size();
-
         String statusTag;
         String mainFeedback;
         String subFeedback;
+
+        boolean hasError = hasStutter || hasInsertion || hasMispronunciation || hasOmission;
+        String guideScript = null;
+
+        if (hasError && origList != null && !origList.isEmpty()) {
+            int minIdx = Integer.MAX_VALUE;
+            int maxIdx = Integer.MIN_VALUE;
+
+            for (WordAnalysisDetail w : words) {
+                Integer idx = wordToOrigIdxMap.get(w);
+                if (idx != null) {
+                    minIdx = Math.min(minIdx, idx);
+                    maxIdx = Math.max(maxIdx, idx);
+                }
+            }
+
+            if (minIdx != Integer.MAX_VALUE) {
+                int startIdx = Math.max(0, minIdx - 1);
+                int endIdx = Math.min(origList.size() - 1, maxIdx + 1);
+
+                StringBuilder guideSb = new StringBuilder();
+                for (int i = startIdx; i <= endIdx; i++) {
+                    guideSb.append(origList.get(i));
+                    if (i < endIdx) guideSb.append(" ");
+                }
+                guideScript = guideSb.toString();
+            }
+        }
 
         if (hasStutter) {
             statusTag = "불필요한 표현";
@@ -329,11 +383,33 @@ public class AzureSpeechService {
                 .status(statusTag)
                 .mainFeedback(mainFeedback)
                 .subFeedback(subFeedback)
+                .guideScript(guideScript)
                 .accuracy(avgAccuracy)
                 .startTimeMs(startMs)
                 .endTimeMs(endMs)
                 .wordDetails(words)
                 .build();
+    }
+
+    private int countWords(String text) {
+        if (text == null || text.trim().isEmpty()) return 0;
+        return text.trim().split("\\s+").length;
+    }
+
+    private boolean isConjunction(String word) {
+        if (word == null) return false;
+        String cleanWord = word.replaceAll("[^가-힣]", "");
+        return cleanWord.equals("그리고") || cleanWord.equals("그래서") ||
+                cleanWord.equals("하지만") || cleanWord.equals("그러나") ||
+                cleanWord.equals("다음으로") || cleanWord.equals("또한") ||
+                cleanWord.equals("반면에") || cleanWord.equals("결과적으로");
+    }
+
+    private boolean isSentenceEnding(String word) {
+        if (word == null) return false;
+        return word.endsWith(".") || word.endsWith("?") || word.endsWith("!") ||
+                word.endsWith("다") || word.endsWith("요") || word.endsWith("죠") ||
+                word.endsWith("까") || word.endsWith("니다") || word.endsWith("아") || word.endsWith("어");
     }
 
     private void applyTopNRelativeEvaluation(List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails) {
