@@ -686,4 +686,16 @@ public class PresentationService {
 
         return geminiService.testSinglePrompt(mockAzureDto, presentation.getScript(), instruction, type);
     }
+
+    @Transactional
+    public void updateScriptOnly(Long presentationId, String newScript, User user) {
+        Presentation presentation = presentationRepository.findById(presentationId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        presentation.updateScript(newScript);
+    }
 }
