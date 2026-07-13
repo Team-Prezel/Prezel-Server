@@ -105,6 +105,10 @@ public class PracticeService {
                         }
                         return response;
                     } else if (result.getReason() == ResultReason.NoMatch) {
+                        NoMatchDetails noMatchDetails = NoMatchDetails.fromResult(result);
+                        if (noMatchDetails.getReason() == NoMatchReason.InitialSilenceTimeout) {
+                            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+                        }
                         throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
                     } else {
                         throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
@@ -131,6 +135,11 @@ public class PracticeService {
         JsonNode rootNode = objectMapper.readTree(jsonResult);
 
         JsonNode wordsNode = rootNode.path("NBest").path(0).path("Words");
+
+        if (wordsNode == null || wordsNode.isEmpty() || wordsNode.size() == 0) {
+            log.warn("Practice 모드: Azure가 음성을 감지했으나 인식된 단어가 없습니다 (무음 또는 잡음 감지)");
+            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+        }
 
         long totalDurationDocs = 0;
 

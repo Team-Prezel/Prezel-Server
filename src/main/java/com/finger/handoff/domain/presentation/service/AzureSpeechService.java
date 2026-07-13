@@ -238,6 +238,11 @@ public class AzureSpeechService {
 
         allWordDetails.sort(java.util.Comparator.comparingLong(WordAnalysisDetail::getStartTimeMs));
 
+        if (allWordDetails.isEmpty() || spokenCharCount == 0) {
+            log.warn("Azure가 음성을 인식했으나 실제로 발음된 단어가 없습니다 (무음 또는 잡음 감지)");
+            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+        }
+
         double durationSecondsDouble = totalDurationDocs / 10000000.0;
         int durationSeconds = (int) Math.round(durationSecondsDouble);
         int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
