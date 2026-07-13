@@ -20,33 +20,32 @@ public class CurationInitController {
     @PostMapping("/init-curations")
     @Transactional
     public ResponseEntity<String> initCurations() {
-        // ★★★ [해결 핵심 1줄 추가!] 기존에 꼬인 테이블이나 중복 데이터가 있으면 싹 지우고 새로 시작! ★★★
+        jdbcTemplate.execute("DROP TABLE IF EXISTS curation;");
         jdbcTemplate.execute("DROP TABLE IF EXISTS presentation_contents;");
-        log.info("기존 presentation_contents 테이블 초기화(DROP) 완료");
+        log.info("기존 테이블 초기화(DROP) 완료");
 
-        // 1. 테이블 생성 DDL
         String createTableSql = """
-            CREATE TABLE presentation_contents (
-                id INT PRIMARY KEY,
-                category VARCHAR(50) NOT NULL,
-                d_day_type VARCHAR(50) NOT NULL,
-                theme VARCHAR(255) NOT NULL,
-                order_num INT NOT NULL,
-                media_type VARCHAR(20) NOT NULL,
-                content_title VARCHAR(255) NOT NULL,
-                author_channel VARCHAR(100) NOT NULL,
-                url TEXT NOT NULL,
-                thumbnail_url TEXT NOT NULL
+            CREATE TABLE curation (
+                id BIGINT PRIMARY KEY,
+                presentation_type VARCHAR(50) NOT NULL,
+                d_day_range VARCHAR(50) NOT NULL,
+                guide_message VARCHAR(255) NOT NULL,
+                recommend_order INT NOT NULL,
+                material_type VARCHAR(50) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                source_channel VARCHAR(100) NOT NULL,
+                link_url VARCHAR(500) NOT NULL,
+                image_url VARCHAR(500) NOT NULL
             ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """;
 
         jdbcTemplate.execute(createTableSql);
-        log.info("presentation_contents 테이블 생성 완료");
+        log.info("curation 테이블 생성 완료");
 
-        // 2. 데이터 삽입 DML (이전과 동일한 1번~96번 데이터)
+        // 3. 컬럼명 완벽 매핑 + URL 깨짐 복원 완료된 96개 데이터 삽입 DML
         String insertSql = """
-            INSERT INTO presentation_contents 
-            (id, category, d_day_type, theme, order_num, media_type, content_title, author_channel, url, thumbnail_url) 
+            INSERT INTO curation 
+            (id, presentation_type, d_day_range, guide_message, recommend_order, material_type, title, source_channel, link_url, image_url) 
             VALUES
             (1,'EDUCATION','D_7_PLUS','발표 흐름을 키워드별로 정리해보세요',1,'영상','학부생을 위한 자료 조사 한 방에 정리하기!','DBpia','https://www.youtube.com/watch?v=YRxDWjfCNk0','https://img.youtube.com/vi/YRxDWjfCNk0/hqdefault.jpg'),
             (2,'EDUCATION','D_7_PLUS','발표 흐름을 키워드별로 정리해보세요',2,'영상','말하기의 핵심은 바로 ''키워드'' 입니다.','김홍국TV','https://www.youtube.com/watch?v=24jkZg_dw5w','https://img.youtube.com/vi/-fLRKwy6SRA/hqdefault.jpg'),
@@ -147,8 +146,8 @@ public class CurationInitController {
         """;
 
         jdbcTemplate.execute(insertSql);
-        log.info("큐레이션 데이터 96건 삽입 완료");
+        log.info("curation 테이블에 96건 데이터 매핑 완료");
 
-        return ResponseEntity.ok("큐레이션 테이블 생성 및 96개 데이터 성공적으로 삽입되었습니다! 🚀");
+        return ResponseEntity.ok("curation 테이블 생성 및 96개 데이터 성공적으로 삽입되었습니다! 🚀");
     }
 }
