@@ -136,6 +136,11 @@ public class PracticeService {
 
         JsonNode wordsNode = rootNode.path("NBest").path(0).path("Words");
 
+        if (wordsNode == null || wordsNode.isEmpty() || wordsNode.size() == 0) {
+            log.warn("Practice 모드: Azure가 음성을 감지했으나 인식된 단어가 없습니다 (무음 또는 잡음 감지)");
+            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+        }
+
         long totalDurationDocs = 0;
 
         if (wordsNode.isArray() && wordsNode.size() > 0) {
