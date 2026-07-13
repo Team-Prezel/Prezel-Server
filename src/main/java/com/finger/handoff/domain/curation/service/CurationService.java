@@ -10,6 +10,7 @@ import com.finger.handoff.domain.presentation.repository.PresentationRepository;
 import com.finger.handoff.global.error.exception.BusinessException;
 import com.finger.handoff.global.error.model.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -34,9 +36,19 @@ public class CurationService {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         LocalDate targetDate = presentation.getPresentationDate();
 
+        if (targetDate == null) {
+            log.warn("Presentation ID {}의 presentationDate가 null", presentationId);
+            targetDate = today;
+        }
+
         long daysLeft = ChronoUnit.DAYS.between(today, targetDate);
 
         DDayRange currentRange = determineDDayRange(daysLeft);
+
+        if (presentation.getType() == null) {
+            log.error("Presentation ID {}의 발표 유형이 null", presentationId);
+            throw new BusinessException(ErrorCode.CURATION_NOT_FOUND);
+        }
 
         PresentationType type = PresentationType.valueOf(presentation.getType().name());
 
