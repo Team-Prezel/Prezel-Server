@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff.domain.curation.controller;
 
 import lombok.RequiredArgsConstructor;
@@ -150,4 +151,4 @@ public class CurationInitController {
 
         return ResponseEntity.ok("curation 테이블 생성 및 96개 데이터 성공적으로 삽입되었습니다! 🚀");
     }
-}
+}*/
