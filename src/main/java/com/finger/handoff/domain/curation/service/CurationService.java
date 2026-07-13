@@ -64,7 +64,7 @@ public class CurationService {
         }
 
         return curationDataList.stream()
-                .map(CurationResponse::from)
+                .map(curationData -> CurationResponse.from(curationData, presentation))
                 .toList();
     }
 
