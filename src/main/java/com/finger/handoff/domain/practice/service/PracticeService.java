@@ -105,6 +105,10 @@ public class PracticeService {
                         }
                         return response;
                     } else if (result.getReason() == ResultReason.NoMatch) {
+                        NoMatchDetails noMatchDetails = NoMatchDetails.fromResult(result);
+                        if (noMatchDetails.getReason() == NoMatchReason.InitialSilenceTimeout) {
+                            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+                        }
                         throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
                     } else {
                         throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
