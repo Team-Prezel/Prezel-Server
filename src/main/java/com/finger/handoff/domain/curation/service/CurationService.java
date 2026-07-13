@@ -52,6 +52,10 @@ public class CurationService {
 
         PresentationType type = PresentationType.valueOf(presentation.getType().name());
 
+        long totalCount = curationRepository.count();
+        log.info("[DB 전체 데이터 개수 : {} ]", totalCount);
+        log.info("[검색 조건: Type = {}, DDay = {} ]", type, currentRange);
+
         List<CurationData> curationDataList = curationRepository
                 .findByPresentationTypeAndDDayRangeOrderByRecommendOrderAsc(type, currentRange);
 
