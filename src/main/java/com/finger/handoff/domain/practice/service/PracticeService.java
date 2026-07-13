@@ -141,6 +141,20 @@ public class PracticeService {
             throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
         }
 
+        boolean hasSpokenWord = false;
+        for (JsonNode wordNode : wordsNode) {
+            String errorType = wordNode.path("PronunciationAssessment").path("ErrorType").asText("None");
+            if (!"Omission".equals(errorType)) {
+                hasSpokenWord = true;
+                break;
+            }
+        }
+
+        if (!hasSpokenWord) {
+            log.warn("Practice 모드: 모든 단어가 Omission(누락) 처리됨 (무음 또는 잡음 감지)");
+            throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
+        }
+
         long totalDurationDocs = 0;
 
         if (wordsNode.isArray() && wordsNode.size() > 0) {
