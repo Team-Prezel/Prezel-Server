@@ -20,9 +20,13 @@ public class CurationInitController {
     @PostMapping("/init-curations")
     @Transactional
     public ResponseEntity<String> initCurations() {
+        // ★★★ [해결 핵심 1줄 추가!] 기존에 꼬인 테이블이나 중복 데이터가 있으면 싹 지우고 새로 시작! ★★★
+        jdbcTemplate.execute("DROP TABLE IF EXISTS presentation_contents;");
+        log.info("기존 presentation_contents 테이블 초기화(DROP) 완료");
+
         // 1. 테이블 생성 DDL
         String createTableSql = """
-            CREATE TABLE IF NOT EXISTS presentation_contents (
+            CREATE TABLE presentation_contents (
                 id INT PRIMARY KEY,
                 category VARCHAR(50) NOT NULL,
                 d_day_type VARCHAR(50) NOT NULL,
@@ -39,7 +43,7 @@ public class CurationInitController {
         jdbcTemplate.execute(createTableSql);
         log.info("presentation_contents 테이블 생성 완료");
 
-        // 2. 데이터 삽입 DML (깨진 URL 및 특수문자 완벽 복원!)
+        // 2. 데이터 삽입 DML (이전과 동일한 1번~96번 데이터)
         String insertSql = """
             INSERT INTO presentation_contents 
             (id, category, d_day_type, theme, order_num, media_type, content_title, author_channel, url, thumbnail_url) 
