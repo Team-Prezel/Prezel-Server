@@ -16,11 +16,11 @@ public class CurationData {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "category")
+    @Column(nullable = false)
     private PresentationType presentationType;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "d_day_type")
+    @Column(nullable = false)
     private DDayRange dDayRange;
 
     @Column(nullable = false)
