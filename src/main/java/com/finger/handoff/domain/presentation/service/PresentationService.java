@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -697,5 +698,96 @@ public class PresentationService {
         }
 
         presentation.updateScript(newScript);
+    }
+
+    @Transactional
+    public PresentationDTO.ScriptDetailResponse correctScript(Long analysisResultId, PresentationDTO.ScriptCorrectionRequest request, User user) {
+        AnalysisResult analysisResult = analysisResultRepository.findById(analysisResultId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        Presentation presentation = analysisResult.getPresentation();
+
+        if (!presentation.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        String finalScript = request.getFinalScript();
+        presentation.updateScript(finalScript);
+
+        List<PresentationDTO.ScriptAnalysisDetail> details = new ArrayList<>();
+        if (analysisResult.getScriptDetailsJson() != null && !analysisResult.getScriptDetailsJson().isEmpty()) {
+            try {
+                details = objectMapper.readValue(analysisResult.getScriptDetailsJson(),
+                        new TypeReference<List<PresentationDTO.ScriptAnalysisDetail>>() {});
+            } catch (JsonProcessingException e) {
+                log.error("대본 교정 중 JSON 파싱 오류", e);
+                throw new BusinessException(ErrorCode.SERVER_ERROR);
+            }
+        }
+
+        if (request.getCorrectedIndices() != null && !request.getCorrectedIndices().isEmpty()) {
+            List<Integer> indicesToRemove = new ArrayList<>(request.getCorrectedIndices());
+            indicesToRemove.sort(Collections.reverseOrder());
+
+            for (Integer idx : indicesToRemove) {
+                if (idx != null && idx >= 0 && idx < details.size()) {
+                    details.remove(idx.intValue());
+                }
+            }
+        }
+
+        List<PresentationDTO.ScriptAnalysisDetail> updatedDetails = new ArrayList<>();
+        int searchStart = 0;
+        int spellCount = 0;
+        int grammarCount = 0;
+
+        for (PresentationDTO.ScriptAnalysisDetail detail : details) {
+            String targetText = detail.getOriginalText();
+            Integer newStart = detail.getStartIndex();
+            Integer newEnd = detail.getEndIndex();
+
+            if (targetText != null && !targetText.isEmpty()) {
+                int startIndex = finalScript.indexOf(targetText, searchStart);
+                if (startIndex == -1) {
+                    startIndex = finalScript.indexOf(targetText);
+                }
+                if (startIndex != -1) {
+                    newStart = startIndex;
+                    newEnd = startIndex + targetText.length();
+                    searchStart = newEnd;
+                }
+            }
+
+            if ("SPELLING".equalsIgnoreCase(detail.getErrorType())) {
+                spellCount++;
+            } else if ("GRAMMAR".equalsIgnoreCase(detail.getErrorType())) {
+                grammarCount++;
+            }
+
+            updatedDetails.add(PresentationDTO.ScriptAnalysisDetail.builder()
+                    .errorType(detail.getErrorType())
+                    .sentence(detail.getSentence())
+                    .originalText(detail.getOriginalText())
+                    .correctedText(detail.getCorrectedText())
+                    .reason(detail.getReason())
+                    .startIndex(newStart)
+                    .endIndex(newEnd)
+                    .build());
+        }
+
+        try {
+            String updatedJson = objectMapper.writeValueAsString(updatedDetails);
+            analysisResult.updateScriptDetails(updatedJson, spellCount, grammarCount);
+        } catch (JsonProcessingException e) {
+            log.error("대본 교정 후 JSON 직렬화 오류", e);
+            throw new BusinessException(ErrorCode.SERVER_ERROR);
+        }
+
+        return PresentationDTO.ScriptDetailResponse.builder()
+                .presentationId(presentation.getId())
+                .audioUrl(analysisResult.getAudioUrl())
+                .originalScript(presentation.getScript())
+                .scriptDetails(updatedDetails)
+                .build();
     }
 }
