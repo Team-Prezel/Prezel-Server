@@ -60,6 +60,12 @@ public class AnalysisResult {
         this.createdAt = LocalDateTime.now();
     }
 
+    public void updateScriptDetails(String scriptDetailsJson, Integer spellErrorCount, Integer grammarErrorCount) {
+        this.scriptDetailsJson = scriptDetailsJson;
+        this.spellErrorCount = spellErrorCount;
+        this.grammarErrorCount = grammarErrorCount;
+    }
+
     @Builder
     public AnalysisResult(Presentation presentation, Integer durationSeconds,
                           String speedEval, Integer spm, Double accuracyScore,
