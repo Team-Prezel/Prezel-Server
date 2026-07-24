@@ -325,7 +325,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(user.getId(), today);
 
         return presentations.stream()
-                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
+                .filter(this::isValidPresentation)
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -337,7 +337,7 @@ public class PresentationService {
                 .findByUserIdAndPresentationDateLessThanOrderByPresentationDateDesc(user.getId(), today);
 
         return presentations.stream()
-                .filter(p -> p.getAnalysisResults() != null && !p.getAnalysisResults().isEmpty())
+                .filter(this::isValidPresentation)
                 .map(this::mapToPresentationListResponse)
                 .toList();
     }
@@ -351,6 +351,9 @@ public class PresentationService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
+        if (!isValidPresentation(presentation)) {
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND);
+        }
         if (presentation.getPresentationDate() != null && presentation.getPresentationDate().isBefore(LocalDate.now())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
@@ -362,13 +365,17 @@ public class PresentationService {
                 .build();
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PresentationDTO.PastDetailResponse getPastPresentationDetail(Long presentationId, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
 
         if (!presentation.getUser().getId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (!isValidPresentation(presentation)) {
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND);
         }
 
         if (presentation.getPresentationDate() != null && !presentation.getPresentationDate().isBefore(LocalDate.now())) {
@@ -789,5 +796,18 @@ public class PresentationService {
                 .originalScript(presentation.getScript())
                 .scriptDetails(updatedDetails)
                 .build();
+    }
+
+    private boolean isValidPresentation(Presentation presentation) {
+        if (presentation.getAnalysisResults() == null || presentation.getAnalysisResults().isEmpty()) {
+            return false;
+        }
+
+        // 가장 최근에 수행된 분석 리포트 조회
+        AnalysisResult latestResult = presentation.getAnalysisResults().get(presentation.getAnalysisResults().size() - 1);
+        Double accuracy = latestResult.getAccuracyScore();
+
+        // accuracyScore가 null이 아니고, 0.0점 초과인 경우에만 화면 노출 허용[cite: 1]
+        return accuracy != null && accuracy > 0.0;
     }
 }
