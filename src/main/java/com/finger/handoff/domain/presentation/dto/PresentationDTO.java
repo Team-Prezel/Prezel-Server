@@ -6,6 +6,7 @@ import com.finger.handoff.domain.presentation.entity.PresentationPurpose;
 import com.finger.handoff.domain.presentation.entity.PresentationStyle;
 import com.finger.handoff.domain.presentation.entity.PresentationType;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
@@ -243,5 +244,20 @@ public class PresentationDTO {
     @Setter
     public static class ScriptUpdateRequest {
         private String script;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ScriptCorrectionRequest {
+        private Long presentationId;
+
+        @NotBlank(message = "최종 대본 내용은 필수")
+        @Schema(description = "교정 반영 완료된 최종 대본 전체 텍스트")
+        private String finalScript;
+
+        @Schema(description = "교정 완료하여 삭제할 오류 항목의 배열 인덱스 리스트 (일괄 수정 시 전체 인덱스 전송)", example = "[0, 2]")
+        private List<Integer> correctedIndices;
     }
 }

@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -272,6 +273,17 @@ public class PresentationController {
 
         presentationService.updateScriptOnly(presentationId, request.getScript(), customUserDetails.getUser());
         return ApiResponse.success();
+    }
+
+    @Operation(summary = "대본 문법 오류 교정 (1개씩 / 일괄 수정)", description = "대본 오류를 교정(교정 후 삭제)하고 남은 오류들의 인덱스를 보정한 최종 대본 분석 결과를 반환합니다.")
+    @PatchMapping("/analyze/{analysisResultId}/scripts/correct")
+    public ApiResponse<PresentationDTO.ScriptDetailResponse> correctScript(
+            @Parameter(description = "분석 결과 ID", required = true) @PathVariable Long analysisResultId,
+            @Valid @RequestBody PresentationDTO.ScriptCorrectionRequest request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        PresentationDTO.ScriptDetailResponse response = presentationService.correctScript(analysisResultId, request, customUserDetails.getUser());
+        return ApiResponse.success(response);
     }
 
     /*@Operation(
