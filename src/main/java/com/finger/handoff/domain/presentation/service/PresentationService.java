@@ -309,6 +309,9 @@ public class PresentationService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
+        reviewRepository.findByPresentationId(presentationId)
+                .ifPresent(reviewRepository::delete);
+
         for (AnalysisResult result : presentation.getAnalysisResults()) {
             if (result.getAudioUrl() != null) {
                 s3Service.deleteAudioFile(result.getAudioUrl());
@@ -506,7 +509,7 @@ public class PresentationService {
 
         for (Presentation presentation : presentations) {
 
-            if (presentation.getAnalysisResults() == null || presentation.getAnalysisResults().isEmpty()) {
+            if (!isValidPresentation(presentation)) {
                 continue;
             }
 
@@ -806,6 +809,10 @@ public class PresentationService {
         // 가장 최근에 수행된 분석 리포트 조회
         AnalysisResult latestResult = presentation.getAnalysisResults().get(presentation.getAnalysisResults().size() - 1);
         Double accuracy = latestResult.getAccuracyScore();
+
+        if (accuracy == null) {
+            return true;
+        }
 
         // accuracyScore가 null이 아니고, 0.0점 초과인 경우에만 화면 노출 허용[cite: 1]
         return accuracy != null && accuracy > 0.0;
