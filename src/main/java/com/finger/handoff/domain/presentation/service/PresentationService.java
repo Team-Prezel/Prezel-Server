@@ -309,6 +309,9 @@ public class PresentationService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
+        reviewRepository.findByPresentationId(presentationId)
+                .ifPresent(reviewRepository::delete);
+
         for (AnalysisResult result : presentation.getAnalysisResults()) {
             if (result.getAudioUrl() != null) {
                 s3Service.deleteAudioFile(result.getAudioUrl());
