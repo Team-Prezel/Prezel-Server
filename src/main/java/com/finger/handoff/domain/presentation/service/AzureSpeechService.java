@@ -184,12 +184,14 @@ public class AzureSpeechService {
                 long endMs = (offset + duration) / 10000;
 
                 boolean isStutter = false;
+                boolean isFiller = word.equals("어") || word.equals("음") || word.equals("그") || word.equals("아") || word.equals("저기") || word.equals("그니까");
+
                 if (errorType.equals("Insertion") && word.equals(previousWord)) {
                     isStutter = true;
                 }
 
                 String statusCode;
-                if (isStutter) {
+                if (isStutter || isFiller) {
                     statusCode = "Stutter";
                 } else if (errorType.equals("Insertion")) {
                     statusCode = "Insertion";
@@ -404,7 +406,11 @@ public class AzureSpeechService {
             }
         }
 
-        if (hasStutter) {
+        if (hasOmission) {
+            statusTag = "누락";
+            mainFeedback = "대본의 일부 단어를 빠뜨렸어요.";
+            subFeedback = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
+        } else if (hasStutter) {
             statusTag = "불필요한 표현";
             mainFeedback = "같은 말을 반복하고 있어요.";
             subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
@@ -416,10 +422,6 @@ public class AzureSpeechService {
             statusTag = "발음";
             mainFeedback = "일부 단어의 발음이 부정확해요.";
             subFeedback = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
-        } else if (hasOmission) {
-            statusTag = "누락";
-            mainFeedback = "대본의 일부 단어를 빠뜨렸어요.";
-            subFeedback = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
         } else {
             statusTag = "발음";
             mainFeedback = "문장의 흐름이 깔끔했어요";
