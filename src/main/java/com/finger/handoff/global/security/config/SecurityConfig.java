@@ -72,7 +72,7 @@ public class SecurityConfig {
 
         // 프론트엔드 주소 허용 (예: 로컬 리액트, 배포된 도메인 등)
         config.setAllowedOrigins(List.of("http://localhost:3000"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true); // 쿠키나 인증 정보를 포함한 요청 허용
 
