@@ -71,7 +71,7 @@ public class ReviewService {
         Review review = reviewRepository.findByPresentationId(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
 
-        if (!review.getId().equals(userId)) {
+        if (!review.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
