@@ -162,6 +162,8 @@ public class AzureSpeechService {
 
             for (JsonNode wordNode : wordsNode) {
                 String word = wordNode.path("Word").asText("");
+                String cleanWord = word.replaceAll("[^가-힣a-zA-Z0-9]", "");
+
                 long offset = wordNode.path("Offset").asLong(0);
                 long duration = wordNode.path("Duration").asLong(0);
 
@@ -180,11 +182,18 @@ public class AzureSpeechService {
                 long startMs = offset / 10000;
                 long endMs = (offset + duration) / 10000;
 
-                boolean isStutter = false;
-                boolean isFiller = word.equals("어") || word.equals("음") || word.equals("그") || word.equals("아") || word.equals("저기") || word.equals("그니까");
+                boolean isFiller = cleanWord.equals("어") || cleanWord.equals("음") || cleanWord.equals("그") ||
+                        cleanWord.equals("아") || cleanWord.equals("저기") || cleanWord.equals("그니까") ||
+                        cleanWord.equals("막") || cleanWord.equals("이제") || cleanWord.equals("에");
 
-                if (errorType.equals("Insertion") && word.equals(previousWord)) {
+                boolean isStutter = false;
+
+                if (!errorType.equals("Omission") && !cleanWord.isEmpty() && cleanWord.equals(previousWord)) {
                     isStutter = true;
+                }
+
+                if (!errorType.equals("Omission") && !cleanWord.isEmpty()) {
+                    previousWord = cleanWord;
                 }
 
                 String statusCode;
@@ -213,11 +222,6 @@ public class AzureSpeechService {
                         .build();
 
                 allWordDetails.add(wd);
-
-
-                if (!errorType.equals("Insertion")) {
-                    previousWord = word;
-                }
             }
         }
 
@@ -316,6 +320,8 @@ public class AzureSpeechService {
         boolean hasMispronunciation = false;
         boolean hasOmission = false;
 
+        int spokenLength = 0;
+
         for (WordAnalysisDetail w : words) {
             totalAccuracy += w.getAccuracy();
 
@@ -328,6 +334,10 @@ public class AzureSpeechService {
                 if (startMs == -1) startMs = w.getStartTimeMs();
                 endMs = Math.max(endMs, w.getEndTimeMs());
             }
+
+            if (!"Insertion".equals(w.getStatus())) {
+                spokenLength += w.getWord().replaceAll("[^가-힣a-zA-Z0-9]", "").length();
+            }
         }
 
         if (startMs == -1) startMs = 0;
@@ -336,24 +346,33 @@ public class AzureSpeechService {
         String mainFeedback;
         String subFeedback;
 
-        if (hasOmission) {
+        String cleanOriginal = originalSentence.replaceAll("[^가-힣a-zA-Z0-9]", "");
+        if (spokenLength < cleanOriginal.length()) {
+            hasOmission = true;
+        }
+
+        if (hasStutter || hasInsertion) {
+            statusTag = "불필요한 표현";
+            if (hasStutter) {
+                mainFeedback = "같은 말을 반복하고 있어요.";
+                subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
+            } else {
+                mainFeedback = "불필요한 추임새가 포함되어 있어요.";
+                subFeedback = "대본에 없는 단어가 들어가지 않도록 주의해 주세요.";
+            }
+        }
+        else if (hasOmission) {
             statusTag = "누락";
             mainFeedback = "대본의 일부 단어를 빠뜨렸어요.";
             subFeedback = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
-        } else if (hasStutter) {
-            statusTag = "불필요한 표현";
-            mainFeedback = "같은 말을 반복하고 있어요.";
-            subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
-        } else if (hasInsertion) {
-            statusTag = "불필요한 표현";
-            mainFeedback = "불필요한 추임새가 포함되어 있어요.";
-            subFeedback = "대본에 없는 단어가 들어가지 않도록 주의해 주세요.";
-        } else if (hasMispronunciation) {
+        }
+        else if (hasMispronunciation) {
             statusTag = "발음";
             mainFeedback = "일부 단어의 발음이 부정확해요.";
             subFeedback = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
-        } else {
-            statusTag = "발음";
+        }
+        else {
+            statusTag = "훌륭해요";
             mainFeedback = "문장의 흐름이 깔끔했어요";
             subFeedback = "지금처럼 또렷한 말하기를 유지해주세요.";
         }
