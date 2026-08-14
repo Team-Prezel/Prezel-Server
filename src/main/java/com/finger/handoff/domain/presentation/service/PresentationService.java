@@ -310,7 +310,10 @@ public class PresentationService {
         }
 
         reviewRepository.findByPresentationId(presentationId)
-                .ifPresent(reviewRepository::delete);
+                .ifPresent(review -> {
+                    reviewRepository.delete(review);
+                    reviewRepository.flush();
+                });
 
         for (AnalysisResult result : presentation.getAnalysisResults()) {
             if (result.getAudioUrl() != null) {
