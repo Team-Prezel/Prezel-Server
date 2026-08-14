@@ -139,10 +139,7 @@ public class AzureSpeechService {
             }
         }
 
-        java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap = new java.util.HashMap<>();
-        int origIdx = 0;
-        int wordCountInOrig = (origList.isEmpty()) ? 0 : countWords(origList.get(origIdx));
-        int matched = 0;
+
         String previousWord = "";
 
         for (String json : jsonResults) {
@@ -165,6 +162,8 @@ public class AzureSpeechService {
 
             for (JsonNode wordNode : wordsNode) {
                 String word = wordNode.path("Word").asText("");
+                String cleanWord = word.replaceAll("[^가-힣a-zA-Z0-9]", "");
+
                 long offset = wordNode.path("Offset").asLong(0);
                 long duration = wordNode.path("Duration").asLong(0);
 
@@ -183,11 +182,18 @@ public class AzureSpeechService {
                 long startMs = offset / 10000;
                 long endMs = (offset + duration) / 10000;
 
-                boolean isStutter = false;
-                boolean isFiller = word.equals("어") || word.equals("음") || word.equals("그") || word.equals("아") || word.equals("저기") || word.equals("그니까");
+                boolean isFiller = cleanWord.equals("어") || cleanWord.equals("음") || cleanWord.equals("그") ||
+                        cleanWord.equals("아") || cleanWord.equals("저기") || cleanWord.equals("그니까") ||
+                        cleanWord.equals("막") || cleanWord.equals("이제") || cleanWord.equals("에");
 
-                if (errorType.equals("Insertion") && word.equals(previousWord)) {
+                boolean isStutter = false;
+
+                if (!errorType.equals("Omission") && !cleanWord.isEmpty() && cleanWord.equals(previousWord)) {
                     isStutter = true;
+                }
+
+                if (!errorType.equals("Omission") && !cleanWord.isEmpty()) {
+                    previousWord = cleanWord;
                 }
 
                 String statusCode;
@@ -216,25 +222,6 @@ public class AzureSpeechService {
                         .build();
 
                 allWordDetails.add(wd);
-
-                if (hasScript && !origList.isEmpty()) {
-                    wordToOrigIdxMap.put(wd, origIdx);
-                    if (!"Insertion".equals(wd.getStatus())) {
-                        matched++;
-                        if (matched >= wordCountInOrig) {
-                            origIdx++;
-                            if (origIdx < origList.size()) {
-                                wordCountInOrig = countWords(origList.get(origIdx));
-                            } else {
-                                wordCountInOrig = Integer.MAX_VALUE;
-                            }
-                            matched = 0;
-                        }
-                    }
-                }
-                if (!errorType.equals("Insertion")) {
-                    previousWord = word;
-                }
             }
         }
 
@@ -250,7 +237,7 @@ public class AzureSpeechService {
         int spm = (int)((durationSecondsDouble > 0) ? (spokenCharCount / durationSecondsDouble) * 60 : 0);
 
         if (hasScript) {
-            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(allWordDetails, wordToOrigIdxMap, origList);
+            List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = splitWordsIntoNaturalSentences(allWordDetails, origList);
             applyTopNRelativeEvaluation(sentenceDetails);
 
             double finalAccuracy = accuracyScores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
@@ -275,56 +262,46 @@ public class AzureSpeechService {
 
     private List<PresentationDTO.SentenceAnalysisDetail> splitWordsIntoNaturalSentences(
             List<WordAnalysisDetail> wordDetails,
-            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap,
             List<String> origList) {
 
         List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = new ArrayList<>();
-        if (wordDetails == null || wordDetails.isEmpty()) return sentenceDetails;
+        if (wordDetails == null || wordDetails.isEmpty() || origList == null || origList.isEmpty()) {
+            return sentenceDetails;
+        }
 
+        int origIdx = 0;
         List<WordAnalysisDetail> currentChunk = new ArrayList<>();
+        StringBuilder accumulatedRefText = new StringBuilder();
 
-        for (int i = 0; i < wordDetails.size(); i++) {
-            WordAnalysisDetail currentWord = wordDetails.get(i);
-            String text = currentWord.getWord();
+        String targetSentence = origList.get(origIdx);
+        String cleanTarget = targetSentence.replaceAll("[^가-힣a-zA-Z0-9]", "");
 
-            if (!currentChunk.isEmpty() && isConjunction(text)) {
-                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
-                currentChunk = new ArrayList<>();
+        for (WordAnalysisDetail word : wordDetails) {
+            currentChunk.add(word);
+
+            if (!"Insertion".equals(word.getStatus())) {
+                accumulatedRefText.append(word.getWord().replaceAll("[^가-힣a-zA-Z0-9]", ""));
             }
 
-            currentChunk.add(currentWord);
+            if (!cleanTarget.isEmpty() && accumulatedRefText.length() >= cleanTarget.length()) {
+                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, targetSentence));
 
-            boolean shouldSplit = false;
-
-            if (isSentenceEnding(text)) {
-                shouldSplit = true;
-            }
-
-            if (!"Omission".equals(currentWord.getStatus())) {
-                WordAnalysisDetail nextSpokenWord = null;
-                for (int j = i + 1; j < wordDetails.size(); j++) {
-                    if (!"Omission".equals(wordDetails.get(j).getStatus())) {
-                        nextSpokenWord = wordDetails.get(j);
-                        break;
-                    }
+                origIdx++;
+                if (origIdx < origList.size()) {
+                    targetSentence = origList.get(origIdx);
+                    cleanTarget = targetSentence.replaceAll("[^가-힣a-zA-Z0-9]", "");
+                } else {
+                    cleanTarget = "";
                 }
 
-                if (nextSpokenWord != null) {
-                    long silenceGap = nextSpokenWord.getStartTimeMs() - currentWord.getEndTimeMs();
-                    if (silenceGap >= 700) {
-                        shouldSplit = true;
-                    }
-                }
-            }
-
-            if (shouldSplit && !currentChunk.isEmpty()) {
-                sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
                 currentChunk = new ArrayList<>();
+                accumulatedRefText.setLength(0);
             }
         }
 
         if (!currentChunk.isEmpty()) {
-            sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, wordToOrigIdxMap, origList));
+            String fallbackTarget = origIdx < origList.size() ? origList.get(origIdx) : targetSentence;
+            sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, fallbackTarget));
         }
 
         return sentenceDetails;
@@ -332,17 +309,8 @@ public class AzureSpeechService {
 
     private PresentationDTO.SentenceAnalysisDetail buildSentenceDetailFromWords(
             List<WordAnalysisDetail> words,
-            java.util.Map<WordAnalysisDetail, Integer> wordToOrigIdxMap,
-            List<String> origList) {
+            String originalSentence) {
 
-        if (words == null || words.isEmpty()) {
-            return PresentationDTO.SentenceAnalysisDetail.builder()
-                    .sentence("")
-                    .wordDetails(new ArrayList<>())
-                    .build();
-        }
-
-        StringBuilder sb = new StringBuilder();
         long startMs = -1;
         long endMs = 0;
         double totalAccuracy = 0.0;
@@ -352,11 +320,9 @@ public class AzureSpeechService {
         boolean hasMispronunciation = false;
         boolean hasOmission = false;
 
-        for (int i = 0; i < words.size(); i++) {
-            WordAnalysisDetail w = words.get(i);
-            sb.append(w.getWord());
-            if (i < words.size() - 1) sb.append(" ");
+        int spokenLength = 0;
 
+        for (WordAnalysisDetail w : words) {
             totalAccuracy += w.getAccuracy();
 
             if ("Stutter".equals(w.getStatus())) hasStutter = true;
@@ -368,72 +334,55 @@ public class AzureSpeechService {
                 if (startMs == -1) startMs = w.getStartTimeMs();
                 endMs = Math.max(endMs, w.getEndTimeMs());
             }
+
+            if (!"Insertion".equals(w.getStatus())) {
+                spokenLength += w.getWord().replaceAll("[^가-힣a-zA-Z0-9]", "").length();
+            }
         }
 
         if (startMs == -1) startMs = 0;
-
-        String sentenceText = sb.toString();
         double avgAccuracy = totalAccuracy / words.size();
         String statusTag;
         String mainFeedback;
         String subFeedback;
 
-        boolean hasError = hasStutter || hasInsertion || hasMispronunciation || hasOmission;
-        String guideScript = null;
-
-        if (hasError && origList != null && !origList.isEmpty()) {
-            int minIdx = Integer.MAX_VALUE;
-            int maxIdx = Integer.MIN_VALUE;
-
-            for (WordAnalysisDetail w : words) {
-                Integer idx = wordToOrigIdxMap.get(w);
-                if (idx != null) {
-                    minIdx = Math.min(minIdx, idx);
-                    maxIdx = Math.max(maxIdx, idx);
-                }
-            }
-
-            if (minIdx != Integer.MAX_VALUE) {
-                int startIdx = Math.max(0, minIdx - 1);
-                int endIdx = Math.min(origList.size() - 1, maxIdx + 1);
-
-                StringBuilder guideSb = new StringBuilder();
-                for (int i = startIdx; i <= endIdx; i++) {
-                    guideSb.append(origList.get(i));
-                    if (i < endIdx) guideSb.append(" ");
-                }
-                guideScript = guideSb.toString();
-            }
+        String cleanOriginal = originalSentence.replaceAll("[^가-힣a-zA-Z0-9]", "");
+        if (spokenLength < cleanOriginal.length()) {
+            hasOmission = true;
         }
 
-        if (hasOmission) {
+        if (hasStutter || hasInsertion) {
+            statusTag = "불필요한 표현";
+            if (hasStutter) {
+                mainFeedback = "같은 말을 반복하고 있어요.";
+                subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
+            } else {
+                mainFeedback = "불필요한 추임새가 포함되어 있어요.";
+                subFeedback = "대본에 없는 단어가 들어가지 않도록 주의해 주세요.";
+            }
+        }
+        else if (hasOmission) {
             statusTag = "누락";
             mainFeedback = "대본의 일부 단어를 빠뜨렸어요.";
             subFeedback = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
-        } else if (hasStutter) {
-            statusTag = "불필요한 표현";
-            mainFeedback = "같은 말을 반복하고 있어요.";
-            subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
-        } else if (hasInsertion) {
-            statusTag = "불필요한 표현";
-            mainFeedback = "불필요한 추임새가 포함되어 있어요.";
-            subFeedback = "대본에 없는 단어가 들어가지 않도록 주의해 주세요.";
-        } else if (hasMispronunciation) {
+        }
+        else if (hasMispronunciation) {
             statusTag = "발음";
             mainFeedback = "일부 단어의 발음이 부정확해요.";
             subFeedback = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
-        } else {
-            statusTag = "발음";
+        }
+        else {
+            statusTag = "훌륭해요";
             mainFeedback = "문장의 흐름이 깔끔했어요";
             subFeedback = "지금처럼 또렷한 말하기를 유지해주세요.";
         }
 
         return PresentationDTO.SentenceAnalysisDetail.builder()
-                .sentence(sentenceText)
+                .sentence(originalSentence)
                 .status(statusTag)
                 .mainFeedback(mainFeedback)
                 .subFeedback(subFeedback)
-                .guideScript(guideScript)
+                .guideScript(originalSentence)
                 .accuracy(avgAccuracy)
                 .startTimeMs(startMs)
                 .endTimeMs(endMs)
