@@ -23,9 +23,6 @@ public class PromptTestDTO {
         @Schema(description = "테스트에 사용할 기존 발표 데이터 ID", example = "1")
         private Long presentationId;
 
-        @Schema(description = "테스트 유형 (SUMMARY: 요약, SCRIPT: 대본, QUESTION: 예상질문)", example = "SUMMARY")
-        private GeminiService.PromptTestType testType;
-
         @Schema(description = "기본 프롬프트 (필수 뼈대)", example = "당신은 전문적인 코치입니다. 다음 기준에 따라 평가해주세요.")
         private String basePrompt;
 
