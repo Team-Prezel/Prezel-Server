@@ -77,8 +77,8 @@ public class GeminiService {
             maxAttempts = 3,             // 최대 3번 시도
             backoff = @Backoff(delay = 2000) // 실패 시 2초 대기 후 재시도
     )
-    public GeminiAllInOneResponse analyzeAll(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript) {
-        String prompt = buildAllInOnePrompt(azureResult, originalScript);
+    public GeminiAllInOneResponse analyzeAll(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript, String customInstruction) {
+        String prompt = buildAllInOnePrompt(azureResult, originalScript, customInstruction);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
@@ -190,7 +190,7 @@ public class GeminiService {
         }
     }
 
-    private String buildAllInOnePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript) {
+    private String buildAllInOnePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript, String customInstruction) {
         StringBuilder sb = new StringBuilder();
         boolean hasScript = originalScript != null && !originalScript.trim().isEmpty();
 
@@ -223,13 +223,24 @@ public class GeminiService {
         if (hasScript) {
             sb.append("\n[원본 대본]\n").append(originalScript).append("\n\n");
             sb.append("위 데이터를 바탕으로 다음 3가지 요청 사항을 순서대로 수행해.\n");
-            sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+
+            if (customInstruction != null && !customInstruction.trim().isEmpty()) {
+                sb.append("[작업 1: 요약 피드백 작성]\n").append(customInstruction).append("\n\n");
+            } else {
+                sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+            }
+
             sb.append(getScriptErrorInstruction()).append("\n\n");
             sb.append(getExpectedQuestionsInstruction()).append("\n\n");
         } else {
             sb.append("\n[원본 대본]\n").append("없음(사용자가 대본을 제공하지 않음)\n\n");
             sb.append("위 데이터를 바탕으로 다음 1가지 요청 사항을 수행해.\n");
-            sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+
+            if (customInstruction != null && !customInstruction.trim().isEmpty()) {
+                sb.append("[작업 1: 요약 피드백 작성]\n").append(customInstruction).append("\n\n");
+            } else {
+                sb.append(getSummaryFeedbackInstruction()).append("\n\n");
+            }
         }
 
         sb.append("결과는 반드시 아래의 단일 JSON 객체(Object) 형식으로만 응답해. 절대 ```json 이나 추가 설명을 덧붙이지 마.\n");

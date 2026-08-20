@@ -1,7 +1,7 @@
-package com.finger.handoff.domain.presentation.controller;
+package com.finger.handoff.domain.presentation.test.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.finger.handoff.domain.presentation.dto.PromptTestDTO;
+import com.finger.handoff.domain.presentation.test.dto.PromptTestDTO;
 import com.finger.handoff.domain.presentation.service.GeminiService;
 import com.finger.handoff.domain.presentation.service.PresentationService;
 import com.finger.handoff.global.common.ApiResponse;
@@ -39,6 +39,23 @@ public class PromptTestController {
     public ApiResponse<JsonNode> testQuestionPrompt(@RequestBody PromptTestDTO.SingleRequest request) {
         JsonNode response = presentationService.testPromptWithExistingData(
                 request.getPresentationId(), request.getInstruction(), GeminiService.PromptTestType.QUESTION);
+        return ApiResponse.success(response);
+    }
+
+    @PostMapping("/test/combine")
+    @Operation(summary = "각 유형별 프롬프트 직접 입력 후 테스트")
+    public ApiResponse<GeminiService.GeminiAllInOneResponse> testRealCombinationPrompt(@RequestBody PromptTestDTO.CombinationRequest request) {
+
+        StringBuilder combinedInstruction = new StringBuilder();
+        if (request.getBasePrompt() != null) combinedInstruction.append(request.getBasePrompt()).append("\n");
+        if (request.getTypePrompt() != null) combinedInstruction.append(request.getTypePrompt()).append("\n");
+        if (request.getPurposePrompt() != null) combinedInstruction.append(request.getPurposePrompt()).append("\n");
+        if (request.getStylePrompt() != null) combinedInstruction.append(request.getStylePrompt()).append("\n");
+        if (request.getAudiencePrompt() != null) combinedInstruction.append(request.getAudiencePrompt());
+
+        GeminiService.GeminiAllInOneResponse response =
+                presentationService.testAllInOnePrompt(request.getPresentationId(), combinedInstruction.toString());
+
         return ApiResponse.success(response);
     }
 }
