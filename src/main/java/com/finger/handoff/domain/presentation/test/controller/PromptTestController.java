@@ -42,7 +42,7 @@ public class PromptTestController {
         return ApiResponse.success(response);
     }
 
-    @PostMapping("/test/combine-real")
+    @PostMapping("/test/combine")
     @Operation(summary = "각 유형별 프롬프트 직접 입력 후 테스트")
     public ApiResponse<GeminiService.GeminiAllInOneResponse> testRealCombinationPrompt(@RequestBody PromptTestDTO.CombinationRequest request) {
 
