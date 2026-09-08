@@ -68,6 +68,9 @@ dependencies {
     //녹음파일 변환
     implementation 'ws.schild:jave-all-deps:3.3.1'
 
+    //fcm 연동
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
+
     implementation 'org.springframework.retry:spring-retry'
     implementation 'org.springframework:spring-aspects'
 }
