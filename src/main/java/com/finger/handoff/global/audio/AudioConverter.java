@@ -52,4 +52,39 @@ public class AudioConverter {
             }
         }
     }
+
+    public File convertToWav(File originalFile) {
+        File convertedWavFile = null;
+
+        try {
+            convertedWavFile = File.createTempFile("converted_audio_", ".wav");
+
+            AudioAttributes audio = new AudioAttributes();
+            audio.setCodec("pcm_s16le");
+            audio.setBitRate(256000);
+            audio.setChannels(1);
+            audio.setSamplingRate(16000);
+
+            EncodingAttributes attrs = new EncodingAttributes();
+            attrs.setOutputFormat("wav");
+            attrs.setAudioAttributes(audio);
+
+            Encoder encoder = new Encoder();
+            encoder.encode(new MultimediaObject(originalFile), convertedWavFile, attrs);
+
+            return convertedWavFile;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            if (convertedWavFile != null && convertedWavFile.exists()) {
+                convertedWavFile.delete();
+            }
+            throw new RuntimeException("오디오 포맷 변환 중 오류가 발생했습니다. 원인: " + e.getMessage(), e);
+        } finally {
+            if (originalFile != null && originalFile.exists()) {
+                originalFile.delete();
+            }
+        }
+    }
 }

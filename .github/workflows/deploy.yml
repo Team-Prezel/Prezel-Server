@@ -21,7 +21,7 @@ jobs:
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
 
-      - name: yml 설정 파일 생성
+      - name: 설정 파일 생성
         run: |
           mkdir -p src/main/resources
           cat << 'EOF' > src/main/resources/application-prod.yml
@@ -30,6 +30,10 @@ jobs:
           
           cat << 'EOF' > src/main/resources/application-secret.yml
           ${{ secrets.APPLICATION_SECRET_YML }}
+          EOF
+
+          cat << 'EOF' > src/main/resources/firebase-adminsdk.json
+          ${{ secrets.FIREBASE_ADMINSDK_JSON }}
           EOF
 
       - name: 프로젝트 빌드
