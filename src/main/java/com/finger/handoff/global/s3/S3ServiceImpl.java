@@ -187,8 +187,11 @@ public class S3ServiceImpl implements S3Service {
                     .key(s3Key)
                     .build();
 
-            s3Client.getObject(getObjectRequest, ResponseTransformer.toFile(tempFile));
-            log.info("S3 오디오 파일 다운로드 완료: key={}, localPath={}", s3Key, tempFile.getAbsolutePath());
+            try (java.io.OutputStream os = new java.io.FileOutputStream(tempFile)) {
+                s3Client.getObject(getObjectRequest, ResponseTransformer.toOutputStream(os));
+            }
+
+            log.info("S3 오디오 파일 다운로드 완료: key={}, localPath={}, size={}", s3Key, tempFile.getAbsolutePath(), tempFile.length());
             return tempFile;
 
         } catch (Exception e) {

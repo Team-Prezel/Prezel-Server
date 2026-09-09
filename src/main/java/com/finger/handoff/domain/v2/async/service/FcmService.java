@@ -38,19 +38,28 @@ public class FcmService {
     }
 
     public void sendAnalysisResultPush(Long userId, Long presentationId, Long analysisResultId, AnalysisStatus status) {
+        sendAnalysisResultPush(userId, presentationId, analysisResultId, status, null, null);
+    }
+
+    public void sendAnalysisResultPush(Long userId, Long presentationId, Long analysisResultId, AnalysisStatus status, String script, String audioUrl) {
         List<FcmToken> tokens = fcmTokenRepository.findAllByUserId(userId);
         if (tokens.isEmpty()) return;
 
         String title = status == AnalysisStatus.COMPLETED ? "분석 완료" : "분석 실패";
         String body = status == AnalysisStatus.COMPLETED ? "분석이 성공적으로 완료되었습니다." : "분석 중 오류가 발생했습니다.";
 
-        for (FcmToken fcmToken : tokens) {
-            String cardStatus = status == AnalysisStatus.COMPLETED ? "complete" : "fail";
-            String errorType = status != AnalysisStatus.COMPLETED ? status.name() : "";
+        String cardStatus = status == AnalysisStatus.COMPLETED ? "complete" : "fail";
+        String errorType = status != AnalysisStatus.COMPLETED ? status.name() : "";
+        String finalScript = script != null ? script : "";
+        if (finalScript.length() > 3000) {
+            finalScript = finalScript.substring(0, 3000);
+        }
+        String finalAudioUrl = (status == AnalysisStatus.ERR_ANALYSIS && audioUrl != null) ? audioUrl : "";
 
+        for (FcmToken fcmToken : tokens) {
             if (FirebaseApp.getApps().isEmpty()) {
-                log.info("[FCM Mock 발송] Firebase 미설정 상태 - 콘솔 로그 대체 (토큰: {}, presentationId: {}, analysisResultId: {}, cardStatus: {}, errorType: {})",
-                        fcmToken.getToken(), presentationId, analysisResultId, cardStatus, errorType);
+                log.info("[FCM Mock 발송] Firebase 미설정 상태 - 콘솔 로그 대체 (토큰: {}, presentationId: {}, analysisResultId: {}, cardStatus: {}, errorType: {}, script길이: {}, audioUrl: {})",
+                        fcmToken.getToken(), presentationId, analysisResultId, cardStatus, errorType, finalScript.length(), finalAudioUrl);
                 continue;
             }
 
@@ -66,6 +75,8 @@ public class FcmService {
                         .putData("status", status.name())
                         .putData("cardStatus", cardStatus)
                         .putData("errorType", errorType)
+                        .putData("script", finalScript)
+                        .putData("audioUrl", finalAudioUrl)
                         .build();
 
                 FirebaseMessaging.getInstance().send(message);
