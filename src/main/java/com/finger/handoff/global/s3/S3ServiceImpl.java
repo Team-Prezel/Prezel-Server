@@ -8,11 +8,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
@@ -163,6 +166,39 @@ public class S3ServiceImpl implements S3Service {
 
         } catch (IOException e) {
             log.error("S3 뱃지 이미지 업로드 상세 실패 원인: ", e);
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    @Override
+    public File downloadAudioFile(String fileUrl) {
+        if (fileUrl == null || fileUrl.trim().isEmpty() || !fileUrl.contains("amazonaws.com")) {
+            throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
+        }
+
+        File tempFile = null;
+        try {
+            String s3Key = extractKeyFromUrl(fileUrl);
+            String extension = extractExtension(s3Key);
+            tempFile = File.createTempFile("s3_download_", extension.isEmpty() ? ".tmp" : extension);
+
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .build();
+
+            try (java.io.OutputStream os = new java.io.FileOutputStream(tempFile)) {
+                s3Client.getObject(getObjectRequest, ResponseTransformer.toOutputStream(os));
+            }
+
+            log.info("S3 오디오 파일 다운로드 완료: key={}, localPath={}, size={}", s3Key, tempFile.getAbsolutePath(), tempFile.length());
+            return tempFile;
+
+        } catch (Exception e) {
+            log.error("S3 오디오 파일 다운로드 실패: fileUrl={}", fileUrl, e);
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
             throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }

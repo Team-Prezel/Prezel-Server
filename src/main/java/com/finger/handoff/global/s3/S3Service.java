@@ -2,6 +2,8 @@ package com.finger.handoff.global.s3;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+
 public interface S3Service {
 
     String uploadProfileImage(MultipartFile file);
@@ -13,4 +15,6 @@ public interface S3Service {
     void deleteAudioFile(String fileUrl);
 
     String uploadBadgeImage(MultipartFile file, String badgeName);
+
+    File downloadAudioFile(String fileUrl);
 }
