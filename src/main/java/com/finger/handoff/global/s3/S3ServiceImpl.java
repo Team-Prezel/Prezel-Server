@@ -62,7 +62,7 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     public void deleteProfileImage(String imageUrl) {
-        if (imageUrl == null || imageUrl.trim().isEmpty() || !imageUrl.contains("amazonaws.com")) {
+        if (imageUrl == null || imageUrl.trim().isEmpty() || (!imageUrl.contains("amazonaws.com") && !imageUrl.contains("oraclecloud.com"))) {
             return;
         }
 
@@ -119,7 +119,7 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     public void deleteAudioFile(String fileUrl) {
-        if (fileUrl == null || fileUrl.trim().isEmpty() || !fileUrl.contains("amazonaws.com")) {
+        if (fileUrl == null || fileUrl.trim().isEmpty() || (!fileUrl.contains("amazonaws.com") && !fileUrl.contains("oraclecloud.com"))) {
             return;
         }
 
@@ -172,7 +172,7 @@ public class S3ServiceImpl implements S3Service {
 
     @Override
     public File downloadAudioFile(String fileUrl) {
-        if (fileUrl == null || fileUrl.trim().isEmpty() || !fileUrl.contains("amazonaws.com")) {
+        if (fileUrl == null || fileUrl.trim().isEmpty() || (!fileUrl.contains("amazonaws.com") && !fileUrl.contains("oraclecloud.com"))) {
             throw new BusinessException(ErrorCode.FILE_IS_EMPTY);
         }
 
@@ -211,6 +211,13 @@ public class S3ServiceImpl implements S3Service {
     }
 
     private String extractKeyFromUrl(String imageUrl) {
+        if (imageUrl == null) {
+            return "";
+        }
+        String bucketPrefix = "/" + bucketName + "/";
+        if (imageUrl.contains(bucketPrefix)) {
+            return imageUrl.substring(imageUrl.indexOf(bucketPrefix) + bucketPrefix.length());
+        }
         String splitStr = ".com/";
         if (imageUrl.contains(splitStr)) {
             return imageUrl.substring(imageUrl.indexOf(splitStr) + splitStr.length());
