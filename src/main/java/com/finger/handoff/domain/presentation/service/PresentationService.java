@@ -255,10 +255,15 @@ public class PresentationService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PresentationDTO.WordDetailResponse getWordDetails(Long analysisResultId) {
         AnalysisResult result = analysisResultRepository.findById(analysisResultId)
                 .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
+
+        if (!Boolean.TRUE.equals(result.getIsViewed())) {
+            result.markAsViewed();
+            analysisResultRepository.save(result);
+        }
 
         List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = null;
         try {
@@ -277,10 +282,15 @@ public class PresentationService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PresentationDTO.ScriptDetailResponse getScriptDetails(Long analysisResultId) {
         AnalysisResult result = analysisResultRepository.findById(analysisResultId)
                 .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
+
+        if (!Boolean.TRUE.equals(result.getIsViewed())) {
+            result.markAsViewed();
+            analysisResultRepository.save(result);
+        }
 
         List<PresentationDTO.ScriptAnalysisDetail> scriptDetails = null;
         try {
@@ -348,7 +358,7 @@ public class PresentationService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PresentationDTO.UpcomingDetailResponse getUpcomingPresentationDetail(Long presentationId, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
@@ -371,7 +381,7 @@ public class PresentationService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PresentationDTO.PastDetailResponse getPastPresentationDetail(Long presentationId, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
@@ -438,6 +448,11 @@ public class PresentationService {
         }
 
         AnalysisResult latestResult = historyResults.get(historyResults.size() - 1);
+
+        if (!Boolean.TRUE.equals(latestResult.getIsViewed())) {
+            latestResult.markAsViewed();
+            analysisResultRepository.save(latestResult);
+        }
 
         boolean hasScript = presentation.getScript() != null && !presentation.getScript().trim().isEmpty();
         List<PresentationDTO.GrowthData> growthGraph = null;
@@ -578,10 +593,15 @@ public class PresentationService {
         return responses;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PresentationDTO.SummaryResponse getAnalysisSummary(Long analysisResultId) {
         AnalysisResult targetResult = analysisResultRepository.findById(analysisResultId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(targetResult.getIsViewed())) {
+            targetResult.markAsViewed();
+            analysisResultRepository.save(targetResult);
+        }
 
         Presentation presentation = targetResult.getPresentation();
 
@@ -722,6 +742,11 @@ public class PresentationService {
 
         if (!presentation.getUser().getId().equals(user.getId())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (!Boolean.TRUE.equals(analysisResult.getIsViewed())) {
+            analysisResult.markAsViewed();
+            analysisResultRepository.save(analysisResult);
         }
 
         String finalScript = request.getFinalScript();
