@@ -46,7 +46,13 @@ public class FcmService {
         if (tokens.isEmpty()) return;
 
         String title = status == AnalysisStatus.COMPLETED ? "분석 완료" : "분석 실패";
-        String body = status == AnalysisStatus.COMPLETED ? "분석이 성공적으로 완료되었습니다." : "분석 중 오류가 발생했습니다.";
+        String body = switch (status) {
+            case COMPLETED -> "분석이 성공적으로 완료되었습니다.";
+            case ERR_VOICE_RECOG -> "분석할 음성을 인식하지 못했어요. 조용한 환경에서 다시 녹음해 주세요.";
+            case ERR_FILE_RECOG -> "음성 파일을 찾지 못했어요. 다른 음성 파일로 다시 시도해 주세요.";
+            case ERR_ANALYSIS -> "분석 중 문제가 발생했어요. 일시적인 오류로 분석을 완료하지 못했어요. 다시 시도해 주세요.";
+            default -> "분석 중 오류가 발생했습니다.";
+        };
 
         String cardStatus = status == AnalysisStatus.COMPLETED ? "complete" : "fail";
         String errorType = status != AnalysisStatus.COMPLETED ? status.name() : "";
