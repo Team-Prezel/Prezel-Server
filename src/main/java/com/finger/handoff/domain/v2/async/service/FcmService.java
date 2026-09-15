@@ -76,6 +76,7 @@ public class FcmService {
                                 .setTitle(title)
                                 .setBody(body)
                                 .build())
+                        .putData("type", "ANALYSIS_RESULT")
                         .putData("presentationId", presentationId.toString())
                         .putData("analysisResultId", analysisResultId.toString())
                         .putData("status", status.name())
