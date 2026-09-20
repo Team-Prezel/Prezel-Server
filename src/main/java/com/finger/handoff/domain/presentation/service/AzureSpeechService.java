@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 @Service
@@ -30,6 +31,42 @@ public class AzureSpeechService {
 
     @Value("${azure.speech.region}")
     private String speechRegion;
+
+    private record FeedbackPair(String mainFeedback, String subFeedback) {}
+
+    private static final List<FeedbackPair> PRONUNCIATION_STRENGTH_FEEDBACKS = List.of(
+            new FeedbackPair("발음이 선명하게 잘 들려요.", "다음 문장에서도 지금처럼 또렷한 발음을 유지해보세요."),
+            new FeedbackPair("전달하고자 하는 내용이 정확하게 잘 들려요.", "중요한 단어는 지금처럼 분명하게 발음해보세요."),
+            new FeedbackPair("막힘 없이 자연스럽게 이어졌어요.", "긴 문장에서도 흐름이 끊기지 않도록 끝까지 이어서 말해보세요.")
+    );
+
+    private static final List<FeedbackPair> UNNECESSARY_EXPRESSION_FEEDBACKS = List.of(
+            new FeedbackPair("잠시 머뭇거리는 부분이 있어요.", "전달하고자하는 핵심 문장에 집중해서 말해보세요."),
+            new FeedbackPair("말 사이에 불필요한 표현이 들어갔어요.", "생각할 시간이 필요할 때는 잠깐 멈춘 뒤 이어서 말해보세요."),
+            new FeedbackPair("문장의 흐름을 끊는 표현이 있어요.", "다음 문장의 핵심 단어를 파악한 뒤 자연스럽게 이어가보세요.")
+    );
+
+    private static final List<String> MISMATCH_MAIN_FEEDBACKS = List.of(
+            "일부 단어가 대본과 다르게 들려요.",
+            "대본과 다른 발음이 들려요.",
+            "대본과 다르게 말한 부분이 있어요."
+    );
+    private static final String MISMATCH_SUB_FEEDBACK = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
+
+    private static final List<String> OMISSION_MAIN_FEEDBACKS = List.of(
+            "말하지 않고 넘어간 단어가 있어요.",
+            "대본의 일부 내용이 빠졌어요.",
+            "중간에 건너뛴 부분이 있어요."
+    );
+    private static final String OMISSION_SUB_FEEDBACK = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
+
+    private static FeedbackPair getRandomFeedback(List<FeedbackPair> list) {
+        return list.get(ThreadLocalRandom.current().nextInt(list.size()));
+    }
+
+    private static String getRandomString(List<String> list) {
+        return list.get(ThreadLocalRandom.current().nextInt(list.size()));
+    }
 
     @Getter
     @Builder
@@ -353,28 +390,25 @@ public class AzureSpeechService {
 
         if (hasStutter || hasInsertion) {
             statusTag = "불필요한 표현";
-            if (hasStutter) {
-                mainFeedback = "같은 말을 반복하고 있어요.";
-                subFeedback = "앞에서 했던 말은 반복하지 않는 것이 좋아요.";
-            } else {
-                mainFeedback = "불필요한 추임새가 포함되어 있어요.";
-                subFeedback = "대본에 없는 단어가 들어가지 않도록 주의해 주세요.";
-            }
+            FeedbackPair feedback = getRandomFeedback(UNNECESSARY_EXPRESSION_FEEDBACKS);
+            mainFeedback = feedback.mainFeedback();
+            subFeedback = feedback.subFeedback();
         }
         else if (hasOmission) {
             statusTag = "누락";
-            mainFeedback = "대본의 일부 단어를 빠뜨렸어요.";
-            subFeedback = "문장을 끝까지 읽을 수 있도록 대본에 집중해 보세요.";
+            mainFeedback = getRandomString(OMISSION_MAIN_FEEDBACKS);
+            subFeedback = OMISSION_SUB_FEEDBACK;
         }
         else if (hasMispronunciation) {
             statusTag = "발음";
-            mainFeedback = "일부 단어의 발음이 부정확해요.";
-            subFeedback = "단어의 발음이 명확하지 않습니다. 다시 한 번 또박또박 연습해 보세요.";
+            mainFeedback = getRandomString(MISMATCH_MAIN_FEEDBACKS);
+            subFeedback = MISMATCH_SUB_FEEDBACK;
         }
         else {
             statusTag = "훌륭해요";
-            mainFeedback = "문장의 흐름이 깔끔했어요";
-            subFeedback = "지금처럼 또렷한 말하기를 유지해주세요.";
+            FeedbackPair feedback = getRandomFeedback(PRONUNCIATION_STRENGTH_FEEDBACKS);
+            mainFeedback = feedback.mainFeedback();
+            subFeedback = feedback.subFeedback();
         }
 
         return PresentationDTO.SentenceAnalysisDetail.builder()
