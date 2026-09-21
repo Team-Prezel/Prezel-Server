@@ -302,7 +302,14 @@ public class AzureSpeechService {
             List<String> origList) {
 
         List<PresentationDTO.SentenceAnalysisDetail> sentenceDetails = new ArrayList<>();
-        if (wordDetails == null || wordDetails.isEmpty() || origList == null || origList.isEmpty()) {
+        if (origList == null || origList.isEmpty()) {
+            return sentenceDetails;
+        }
+
+        if (wordDetails == null || wordDetails.isEmpty()) {
+            for (String omitted : origList) {
+                sentenceDetails.add(buildOmittedSentenceDetail(omitted, 0L));
+            }
             return sentenceDetails;
         }
 
@@ -318,6 +325,40 @@ public class AzureSpeechService {
 
             if (!"Insertion".equals(word.getStatus())) {
                 accumulatedRefText.append(word.getWord().replaceAll("[^가-힣a-zA-Z0-9]", ""));
+            }
+
+            int lookAheadLimit = Math.min(origIdx + 3, origList.size() - 1);
+            if (origIdx < lookAheadLimit && currentChunk.size() >= 2) {
+                int currentMatch = countMatchingMeaningfulWords(currentChunk, cleanTarget);
+                if (currentMatch == 0) {
+                    int bestSkipIdx = -1;
+                    int maxMatch = 1;
+
+                    for (int nextIdx = origIdx + 1; nextIdx <= lookAheadLimit; nextIdx++) {
+                        String cleanNext = origList.get(nextIdx).replaceAll("[^가-힣a-zA-Z0-9]", "");
+                        int matchCount = countMatchingMeaningfulWords(currentChunk, cleanNext);
+                        if (matchCount > maxMatch) {
+                            maxMatch = matchCount;
+                            bestSkipIdx = nextIdx;
+                        }
+                    }
+
+                    if (bestSkipIdx != -1) {
+                        long skipTimeMs = currentChunk.get(0).getStartTimeMs();
+                        while (origIdx < bestSkipIdx) {
+                            sentenceDetails.add(buildOmittedSentenceDetail(origList.get(origIdx), skipTimeMs));
+                            origIdx++;
+                        }
+                        targetSentence = origList.get(origIdx);
+                        cleanTarget = targetSentence.replaceAll("[^가-힣a-zA-Z0-9]", "");
+                        accumulatedRefText.setLength(0);
+                        for (WordAnalysisDetail w : currentChunk) {
+                            if (!"Insertion".equals(w.getStatus())) {
+                                accumulatedRefText.append(w.getWord().replaceAll("[^가-힣a-zA-Z0-9]", ""));
+                            }
+                        }
+                    }
+                }
             }
 
             if (!cleanTarget.isEmpty() && accumulatedRefText.length() >= cleanTarget.length()) {
@@ -336,12 +377,77 @@ public class AzureSpeechService {
             }
         }
 
+        long lastEndMs = 0;
+        if (!sentenceDetails.isEmpty()) {
+            lastEndMs = sentenceDetails.get(sentenceDetails.size() - 1).getEndTimeMs();
+        }
+
         if (!currentChunk.isEmpty()) {
             String fallbackTarget = origIdx < origList.size() ? origList.get(origIdx) : targetSentence;
-            sentenceDetails.add(buildSentenceDetailFromWords(currentChunk, fallbackTarget));
+            PresentationDTO.SentenceAnalysisDetail detail = buildSentenceDetailFromWords(currentChunk, fallbackTarget);
+            sentenceDetails.add(detail);
+            lastEndMs = Math.max(lastEndMs, detail.getEndTimeMs());
+            origIdx++;
+        }
+
+        while (origIdx < origList.size()) {
+            String omittedSentence = origList.get(origIdx);
+            sentenceDetails.add(buildOmittedSentenceDetail(omittedSentence, lastEndMs));
+            origIdx++;
         }
 
         return sentenceDetails;
+    }
+
+    private int countMatchingMeaningfulWords(List<WordAnalysisDetail> words, String cleanSentence) {
+        if (words == null || words.isEmpty() || cleanSentence == null || cleanSentence.isEmpty()) {
+            return 0;
+        }
+        int matchCount = 0;
+        for (WordAnalysisDetail w : words) {
+            if ("Insertion".equals(w.getStatus())) continue;
+            String cleanWord = w.getWord().replaceAll("[^가-힣a-zA-Z0-9]", "");
+            if (cleanWord.length() >= 2 && cleanSentence.contains(cleanWord)) {
+                matchCount++;
+            }
+        }
+        return matchCount;
+    }
+
+    private PresentationDTO.SentenceAnalysisDetail buildOmittedSentenceDetail(
+            String originalSentence,
+            long timeMs) {
+
+        String mainFeedback = getRandomString(OMISSION_MAIN_FEEDBACKS);
+        String subFeedback = OMISSION_SUB_FEEDBACK;
+
+        List<WordAnalysisDetail> omittedWords = new ArrayList<>();
+        if (originalSentence != null && !originalSentence.trim().isEmpty()) {
+            String[] tokens = originalSentence.trim().split("\\s+");
+            for (String token : tokens) {
+                if (!token.isEmpty()) {
+                    omittedWords.add(WordAnalysisDetail.builder()
+                            .word(token)
+                            .status("Omission")
+                            .accuracy(0.0)
+                            .startTimeMs(timeMs)
+                            .endTimeMs(timeMs)
+                            .build());
+                }
+            }
+        }
+
+        return PresentationDTO.SentenceAnalysisDetail.builder()
+                .sentence(originalSentence)
+                .status("누락")
+                .mainFeedback(mainFeedback)
+                .subFeedback(subFeedback)
+                .guideScript(originalSentence)
+                .accuracy(0.0)
+                .startTimeMs(timeMs)
+                .endTimeMs(timeMs)
+                .wordDetails(omittedWords)
+                .build();
     }
 
     private PresentationDTO.SentenceAnalysisDetail buildSentenceDetailFromWords(
