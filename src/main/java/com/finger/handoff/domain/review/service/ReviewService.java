@@ -15,6 +15,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,12 +37,16 @@ public class ReviewService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
-        if (reviewRepository.existsById(presentationId)) {
-            throw new BusinessException(ErrorCode.ALREADY_REVIEWED);
+        if (request.content() != null && request.content().length() > 200) {
+            throw new BusinessException(ErrorCode.CONTENT_TOO_LONG);
         }
 
-        if (request.content().length() > 200) {
-            throw new BusinessException(ErrorCode.CONTENT_TOO_LONG);
+        Optional<Review> existingReviewOpt = reviewRepository.findByPresentationId(presentationId);
+        if (existingReviewOpt.isPresent()) {
+            Review existingReview = existingReviewOpt.get();
+            existingReview.updateContent(request.content());
+            log.info("회고가 이미 존재하여 내용을 수정(Upsert)했습니다. presentationId: {}, userId: {}", presentationId, userId);
+            return ReviewDto.Response.from(existingReview);
         }
 
         Review review = Review.builder()
@@ -73,6 +79,10 @@ public class ReviewService {
 
         if (!review.getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (request.content() != null && request.content().length() > 200) {
+            throw new BusinessException(ErrorCode.CONTENT_TOO_LONG);
         }
 
         // 4. 내용 업데이트 (엔티티 내부에 update 메서드 권장)

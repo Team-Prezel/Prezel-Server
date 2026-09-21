@@ -24,8 +24,8 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @Operation(
-            summary = "발표 셀프 피드백(회고) 작성",
-            description = "발표가 끝난 후 최대 200자까지 셀프 피드백을 작성합니다. 하나의 발표당 하나의 회고만 작성할 수 있습니다."
+            summary = "발표 셀프 피드백(회고) 작성 및 수정(Upsert)",
+            description = "발표가 끝난 후 최대 200자까지 셀프 피드백을 작성합니다. 이미 작성된 회고가 있는 경우 내용이 수정(Upsert)됩니다."
     )
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회고 작성 성공"),
