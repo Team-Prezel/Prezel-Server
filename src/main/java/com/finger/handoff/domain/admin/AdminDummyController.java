@@ -11,11 +11,13 @@ import com.finger.handoff.domain.user.entity.User;
 import com.finger.handoff.domain.user.repository.UserRepository;
 import com.finger.handoff.domain.v2.async.entity.AnalysisStatus;
 import com.finger.handoff.global.common.ApiResponse;
+import com.finger.handoff.global.security.user.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,25 +39,18 @@ public class AdminDummyController {
     private final ObjectMapper objectMapper;
 
     private static final String ADMIN_EMAIL = "admin@admin.com";
-    private static final String DUMMY_TITLE = "[테스트] 에러 유형별 분석 리포트";
+    private static final String DUMMY_TITLE = "[테스트] 에러 유형별 분석 리포트 (4종 칩)";
 
     @Operation(
             summary = "어드민 계정에 4가지 에러 유형별 더미 발표 리포트 생성",
-            description = "어드민 계정(admin@admin.com)에 '훌륭해요', '발음', '누락', '불필요한 표현' 4가지 상태가 모두 포함된 완성형 발표 및 분석 리포트를 생성합니다. 기존에 생성된 더미 발표가 있다면 삭제 후 새로 생성(멱등성)합니다."
+            description = "어드민 계정(admin@admin.com 또는 로그인된 토큰)에 '훌륭해요', '발음', '누락', '불필요한 표현' 4가지 상태가 모두 포함된 완성형 발표 및 분석 리포트를 생성합니다. 기존에 생성된 더미 발표가 있다면 삭제 후 새로 생성(멱등성)합니다."
     )
     @PostMapping("/error-types")
     @Transactional
-    public ResponseEntity<ApiResponse<Map<String, Object>>> createErrorTypesDummy() throws JsonProcessingException {
-        // 1. 어드민 유저 조회 또는 생성
-        User adminUser = userRepository.findByEmail(ADMIN_EMAIL).orElseGet(() -> {
-            User newUser = User.builder()
-                    .email(ADMIN_EMAIL)
-                    .nickname("관리자")
-                    .isTermsAgreement(true)
-                    .isProfileComplete(true)
-                    .build();
-            return userRepository.save(newUser);
-        });
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createErrorTypesDummy(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) throws JsonProcessingException {
+        // 1. 로그인된 유저가 있으면 해당 유저 사용, 없으면 admin@admin.com 조회 또는 생성
+        User adminUser = resolveAdminUser(customUserDetails);
 
         // 2. 기존 동일 제목의 더미 데이터가 있으면 멱등성을 위해 연관 AnalysisResult와 함께 삭제
         List<Presentation> existingList = presentationRepository.findByUserId(adminUser.getId());
@@ -134,20 +129,35 @@ public class AdminDummyController {
     )
     @DeleteMapping("/error-types")
     @Transactional
-    public ResponseEntity<ApiResponse<String>> deleteErrorTypesDummy() {
-        userRepository.findByEmail(ADMIN_EMAIL).ifPresent(adminUser -> {
-            List<Presentation> list = presentationRepository.findByUserId(adminUser.getId());
-            for (Presentation p : list) {
-                if (DUMMY_TITLE.equals(p.getTitle())) {
-                    List<AnalysisResult> results = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(p.getId());
-                    analysisResultRepository.deleteAll(results);
-                    analysisResultRepository.flush();
-                    presentationRepository.delete(p);
-                    presentationRepository.flush();
-                }
+    public ResponseEntity<ApiResponse<String>> deleteErrorTypesDummy(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        User adminUser = resolveAdminUser(customUserDetails);
+        List<Presentation> list = presentationRepository.findByUserId(adminUser.getId());
+        for (Presentation p : list) {
+            if (DUMMY_TITLE.equals(p.getTitle())) {
+                List<AnalysisResult> results = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(p.getId());
+                analysisResultRepository.deleteAll(results);
+                analysisResultRepository.flush();
+                presentationRepository.delete(p);
+                presentationRepository.flush();
             }
-        });
+        }
         return ResponseEntity.ok(ApiResponse.success("더미 발표 데이터가 삭제되었습니다."));
+    }
+
+    private User resolveAdminUser(CustomUserDetails customUserDetails) {
+        if (customUserDetails != null && customUserDetails.getUser() != null) {
+            return customUserDetails.getUser();
+        }
+        return userRepository.findByEmail(ADMIN_EMAIL).orElseGet(() -> {
+            User newUser = User.builder()
+                    .email(ADMIN_EMAIL)
+                    .nickname("관리자")
+                    .isTermsAgreement(true)
+                    .isProfileComplete(true)
+                    .build();
+            return userRepository.save(newUser);
+        });
     }
 
     private List<SentenceAnalysisDetail> createSentenceDetails() {
