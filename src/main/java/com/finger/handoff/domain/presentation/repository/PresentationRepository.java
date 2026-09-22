@@ -22,5 +22,7 @@ public interface PresentationRepository extends JpaRepository<Presentation, Long
 
     List<Presentation> findTop3ByUserIdAndPresentationDateGreaterThanEqualOrderByPresentationDateAsc(Long userId, LocalDate cutoffDate);
 
+    List<Presentation> findByUserId(Long userId);
+
     void deleteAllByUserId(Long userId);
 }
