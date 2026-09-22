@@ -1,3 +1,4 @@
+/*
 package com.finger.handoff.domain.admin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -297,3 +298,4 @@ public class AdminDummyController {
                 """.trim();
     }
 }
+*/
