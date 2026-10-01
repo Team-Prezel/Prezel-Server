@@ -77,10 +77,34 @@ jobs:
             sudo docker run -d --network handoff-net -p 80:8080 -e SPRING_PROFILES_ACTIVE=prod --name handoff audwns03/handoff
             sudo docker image prune -f
 
-            # 4. 모니터링(Prometheus & Grafana) 컨테이너 자동 기동
-            cd /home/ubuntu/monitoring
-            if docker compose version >/dev/null 2>&1; then
-              sudo docker compose -f docker-compose.monitoring.yml up -d
-            else
-              sudo docker-compose -f docker-compose.monitoring.yml up -d
-            fi
+            # 4. 모니터링(Prometheus & Grafana) 컨테이너 기동
+            sudo docker stop prometheus || true
+            sudo docker rm -f prometheus || true
+            sudo docker run -d \
+              --name prometheus \
+              --restart unless-stopped \
+              --network handoff-net \
+              --memory 250M \
+              -v /home/ubuntu/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro \
+              -v prometheus_data:/prometheus \
+              prom/prometheus:v2.51.2 \
+              --config.file=/etc/prometheus/prometheus.yml \
+              --storage.tsdb.path=/prometheus \
+              --storage.tsdb.retention.time=7d \
+              --storage.tsdb.retention.size=512MB \
+              --web.enable-lifecycle
+
+            sudo docker stop grafana || true
+            sudo docker rm -f grafana || true
+            sudo docker run -d \
+              --name grafana \
+              --restart unless-stopped \
+              --network handoff-net \
+              --memory 200M \
+              -p 3000:3000 \
+              -e GF_SECURITY_ADMIN_USER=admin \
+              -e GF_SECURITY_ADMIN_PASSWORD=admin \
+              -e GF_USERS_ALLOW_SIGN_UP=false \
+              -v grafana_data:/var/lib/grafana \
+              -v /home/ubuntu/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro \
+              grafana/grafana:10.4.2
