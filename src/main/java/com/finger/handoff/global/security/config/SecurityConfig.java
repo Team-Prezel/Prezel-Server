@@ -49,7 +49,8 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**",
                                 "/admin/**",
-                                "/api/admin/**"
+                                "/api/admin/**",
+                                "/actuator/**"
                         ).permitAll()
                         // 그 외의 모든 요청은 무조건 인증(사원증)이 필요함 (보안 구역)
                         .anyRequest().authenticated()
