@@ -40,3 +40,10 @@ src/main/resources/application-secret.yml
 src/main/resources/application-prod.yml
 src/main/resources/*firebase*.json
 *firebase-adminsdk*.json
+
+# Local environment & test files
+gradle.properties
+src/test/
+src/main/java/com/finger/handoff/test/
+src/main/java/com/finger/handoff/global/s3/TestS3Controller.java
+src/main/resources/data.sql

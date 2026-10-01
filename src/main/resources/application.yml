@@ -16,3 +16,21 @@ oauth2:
   kakao:
     token-uri: "https://kauth.kakao.com/oauth/token"
     user-info-uri: "https://kapi.kakao.com/v2/user/me"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: handoff
