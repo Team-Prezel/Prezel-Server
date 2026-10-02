@@ -313,25 +313,48 @@ public class PresentationService {
     @Transactional
     public void deletePresentation(Long presentationId, User user) {
         Presentation presentation = presentationRepository.findById(presentationId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+                .orElseGet(() -> {
+                    log.info("Presentation ID {}를 찾지 못하여 AnalysisResult ID로 재조회합니다.", presentationId);
+                    return analysisResultRepository.findById(presentationId)
+                            .map(AnalysisResult::getPresentation)
+                            .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+                });
 
         if (!presentation.getUser().getId().equals(user.getId())) {
+            log.warn("발표 삭제 권한 없음: presentationId={}, 소유자 userId={}, 요청자 userId={}",
+                    presentation.getId(), presentation.getUser().getId(), user.getId());
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
-        reviewRepository.findByPresentationId(presentationId)
+        Long actualPresentationId = presentation.getId();
+
+        // 1. 연관된 회고(Review) 선행 삭제
+        reviewRepository.findByPresentationId(actualPresentationId)
                 .ifPresent(review -> {
                     reviewRepository.delete(review);
                     reviewRepository.flush();
                 });
 
-        for (AnalysisResult result : presentation.getAnalysisResults()) {
+        // 2. 연관된 분석 결과(AnalysisResult) 오디오 파일 정리 및 선행 삭제 (외래키 제약조건 완벽 보장)
+        List<AnalysisResult> analysisResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(actualPresentationId);
+        for (AnalysisResult result : analysisResults) {
             if (result.getAudioUrl() != null) {
                 s3Service.deleteAudioFile(result.getAudioUrl());
             }
         }
+        if (!analysisResults.isEmpty()) {
+            analysisResultRepository.deleteAll(analysisResults);
+            analysisResultRepository.flush();
+        }
 
+        // 3. 영속성 컨텍스트 컬렉션 동기화 및 정리
+        presentation.getAnalysisResults().clear();
+        presentation.getPracticeDates().clear();
+
+        // 4. 발표(Presentation) 삭제
         presentationRepository.delete(presentation);
+        presentationRepository.flush();
+        log.info("발표 및 관련 리포트 전체 삭제 완료: presentationId={}, userId={}", actualPresentationId, user.getId());
     }
 
     @Transactional(readOnly = true)
