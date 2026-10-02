@@ -1,4 +1,3 @@
-/*
 package com.finger.handoff.domain.admin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,23 +39,35 @@ public class AdminDummyController {
     private final ObjectMapper objectMapper;
 
     private static final String ADMIN_EMAIL = "admin@admin.com";
-    private static final String DUMMY_TITLE = "[테스트] 에러 유형별 분석 리포트 (4종 칩)";
+    private static final String TITLE_SUCCESS = "[테스트] 에러 유형별 분석 리포트";
+    private static final String TITLE_ERR_VOICE = "[테스트] 음성 인식 실패 카드 (ERR_VOICE_RECOG)";
+    private static final String TITLE_ERR_FILE = "[테스트] 음성 파일 에러 카드 (ERR_FILE_RECOG)";
+    private static final String TITLE_ERR_ANALYSIS = "[테스트] 분석 중 문제 발생 카드 (ERR_ANALYSIS)";
+
+    private static final List<String> DUMMY_TITLES = List.of(
+            TITLE_SUCCESS,
+            TITLE_ERR_VOICE,
+            TITLE_ERR_FILE,
+            TITLE_ERR_ANALYSIS
+    );
 
     @Operation(
-            summary = "어드민 계정에 4가지 에러 유형별 더미 발표 리포트 생성",
-            description = "어드민 계정(admin@admin.com 또는 로그인된 토큰)에 '훌륭해요', '발음', '누락', '불필요한 표현' 4가지 상태가 모두 포함된 완성형 발표 및 분석 리포트를 생성합니다. 기존에 생성된 더미 발표가 있다면 삭제 후 새로 생성(멱등성)합니다."
+            summary = "에러 유형별 더미 발표 리포트 및 카드 4종 생성",
+            description = "로그인 유저 또는 지정된 email(미입력시 admin@admin.com)에 '성공 리포트' 및 '실패 카드 3종(ERR_VOICE_RECOG, ERR_FILE_RECOG, ERR_ANALYSIS)'을 생성합니다. 기존 더미 데이터가 있다면 삭제 후 새로 생성합니다."
     )
     @PostMapping("/error-types")
     @Transactional
     public ResponseEntity<ApiResponse<Map<String, Object>>> createErrorTypesDummy(
+            @RequestParam(required = false) String email,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) throws JsonProcessingException {
-        // 1. 로그인된 유저가 있으면 해당 유저 사용, 없으면 admin@admin.com 조회 또는 생성
-        User adminUser = resolveAdminUser(customUserDetails);
 
-        // 2. 기존 동일 제목의 더미 데이터가 있으면 멱등성을 위해 연관 AnalysisResult와 함께 삭제
-        List<Presentation> existingList = presentationRepository.findByUserId(adminUser.getId());
+        // 1. 대상 유저 결정 (email 파라미터 우선 -> 로그인 유저 -> admin@admin.com)
+        User targetUser = resolveAdminUser(email, customUserDetails);
+
+        // 2. 기존 동일 제목의 더미 데이터가 있으면 멱등성을 위해 삭제
+        List<Presentation> existingList = presentationRepository.findByUserId(targetUser.getId());
         for (Presentation p : existingList) {
-            if (DUMMY_TITLE.equals(p.getTitle())) {
+            if (DUMMY_TITLES.contains(p.getTitle())) {
                 List<AnalysisResult> results = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(p.getId());
                 analysisResultRepository.deleteAll(results);
                 analysisResultRepository.flush();
@@ -65,37 +76,34 @@ public class AdminDummyController {
             }
         }
 
-        // 3. 더미 대본 정의
+        List<Map<String, Object>> createdItems = new ArrayList<>();
+
+        // 3. [케이스 1: 성공 리포트 (4종 칩 포함)]
         String script = "안녕하세요 오늘 프로젝트 발표를 시작하겠습니다. " +
                 "저희 팀은 인공지능 기반 음성 분석 솔루션을 만듭니다. " +
                 "대본에 있는 내용을 끝까지 전달하는 것이 매우 중요합니다. " +
                 "지금부터 주요 기능 세 가지를 차례대로 소개해 드리겠습니다.";
 
-        // 4. 새 Presentation 생성
-        Presentation presentation = presentationRepository.save(Presentation.builder()
-                .user(adminUser)
-                .title(DUMMY_TITLE)
+        Presentation successPres = presentationRepository.save(Presentation.builder()
+                .user(targetUser)
+                .title(TITLE_SUCCESS)
                 .script(script)
-                .presentationDate(LocalDate.now())
+                .presentationDate(LocalDate.now().plusDays(3))
                 .type(PresentationType.WORK)
                 .audience(PresentationAudience.GENERAL)
                 .purpose(PresentationPurpose.INFO)
                 .style(PresentationStyle.FORMAL)
                 .build());
 
-        // 5. 4가지 에러 유형이 모두 포함된 sentenceDetails (word_details_json) 생성
         List<SentenceAnalysisDetail> sentenceDetails = createSentenceDetails();
         String wordDetailsJson = objectMapper.writeValueAsString(sentenceDetails);
-
-        // 6. 대본 교정(script_details_json) 및 예상 질문(expected_questions_json) 더미 생성
         String scriptDetailsJson = createScriptDetailsJson();
         String expectedQuestionsJson = createExpectedQuestionsJson();
 
-        // 7. AnalysisResult 저장
-        AnalysisResult analysisResult = analysisResultRepository.save(AnalysisResult.builder()
-                .presentation(presentation)
+        AnalysisResult successResult = analysisResultRepository.save(AnalysisResult.builder()
+                .presentation(successPres)
                 .status(AnalysisStatus.COMPLETED)
-                .isViewed(true)
+                .isViewed(false)
                 .accuracyScore(84.5)
                 .scriptMatchRate(75.0)
                 .spm(235)
@@ -110,43 +118,147 @@ public class AdminDummyController {
                 .expectedQuestionsJson(expectedQuestionsJson)
                 .build());
 
-        log.info("[AdminDummy] 더미 발표(id={}) 및 분석 리포트(id={}) 생성 완료 (admin@admin.com)",
-                presentation.getId(), analysisResult.getId());
+        createdItems.add(Map.of(
+                "title", TITLE_SUCCESS,
+                "presentationId", successPres.getId(),
+                "analysisResultId", successResult.getId(),
+                "status", "COMPLETED",
+                "cardStatus", "complete",
+                "description", "4종 칩(훌륭해요, 발음, 누락, 불필요한 표현) 완성형 리포트"
+        ));
+
+        // 4. [케이스 2: 실패 유형 1 - 음성 인식 실패 (ERR_VOICE_RECOG)]
+        Presentation voiceErrPres = presentationRepository.save(Presentation.builder()
+                .user(targetUser)
+                .title(TITLE_ERR_VOICE)
+                .script("음성 인식 실패 테스트용 대본입니다.")
+                .presentationDate(LocalDate.now().plusDays(2))
+                .type(PresentationType.EDUCATION)
+                .audience(PresentationAudience.TEAMMATE)
+                .purpose(PresentationPurpose.UNDERSTANDING)
+                .style(PresentationStyle.CASUAL)
+                .build());
+
+        AnalysisResult voiceErrResult = analysisResultRepository.save(AnalysisResult.builder()
+                .presentation(voiceErrPres)
+                .status(AnalysisStatus.ERR_VOICE_RECOG)
+                .isViewed(false)
+                .build());
+
+        createdItems.add(Map.of(
+                "title", TITLE_ERR_VOICE,
+                "presentationId", voiceErrPres.getId(),
+                "analysisResultId", voiceErrResult.getId(),
+                "status", "ERR_VOICE_RECOG",
+                "cardStatus", "fail",
+                "errorType", "ERR_VOICE_RECOG"
+        ));
+
+        // 5. [케이스 3: 실패 유형 2 - 음성 파일 문제 (ERR_FILE_RECOG)]
+        Presentation fileErrPres = presentationRepository.save(Presentation.builder()
+                .user(targetUser)
+                .title(TITLE_ERR_FILE)
+                .script("음성 파일 에러 테스트용 대본입니다.")
+                .presentationDate(LocalDate.now().plusDays(1))
+                .type(PresentationType.OFFER)
+                .audience(PresentationAudience.PROFESSIONAL)
+                .purpose(PresentationPurpose.EMPATHY)
+                .style(PresentationStyle.FORMAL)
+                .build());
+
+        AnalysisResult fileErrResult = analysisResultRepository.save(AnalysisResult.builder()
+                .presentation(fileErrPres)
+                .status(AnalysisStatus.ERR_FILE_RECOG)
+                .isViewed(false)
+                .build());
+
+        createdItems.add(Map.of(
+                "title", TITLE_ERR_FILE,
+                "presentationId", fileErrPres.getId(),
+                "analysisResultId", fileErrResult.getId(),
+                "status", "ERR_FILE_RECOG",
+                "cardStatus", "fail",
+                "errorType", "ERR_FILE_RECOG"
+        ));
+
+        // 6. [케이스 4: 실패 유형 3 - 분석 오류 (ERR_ANALYSIS, 음성 재사용 URL 포함)]
+        Presentation analysisErrPres = presentationRepository.save(Presentation.builder()
+                .user(targetUser)
+                .title(TITLE_ERR_ANALYSIS)
+                .script("분석 오류 테스트용 대본입니다. 음성 재사용이 가능합니다.")
+                .presentationDate(LocalDate.now())
+                .type(PresentationType.WORK)
+                .audience(PresentationAudience.GENERAL)
+                .purpose(PresentationPurpose.INFO)
+                .style(PresentationStyle.FORMAL)
+                .build());
+
+        AnalysisResult analysisErrResult = analysisResultRepository.save(AnalysisResult.builder()
+                .presentation(analysisErrPres)
+                .status(AnalysisStatus.ERR_ANALYSIS)
+                .isViewed(false)
+                .audioUrl("https://axscunf5cln9.compat.objectstorage.ap-chuncheon-1.oraclecloud.com/handoff-bucket/audio/test.wav")
+                .build());
+
+        createdItems.add(Map.of(
+                "title", TITLE_ERR_ANALYSIS,
+                "presentationId", analysisErrPres.getId(),
+                "analysisResultId", analysisErrResult.getId(),
+                "status", "ERR_ANALYSIS",
+                "cardStatus", "fail",
+                "errorType", "ERR_ANALYSIS",
+                "audioUrl", "https://axscunf5cln9.compat.objectstorage.ap-chuncheon-1.oraclecloud.com/handoff-bucket/audio/test.wav"
+        ));
+
+        log.info("[AdminDummy] 더미 발표 4종 생성 완료 - 대상 유저: {} (id={})", targetUser.getEmail(), targetUser.getId());
 
         Map<String, Object> responseData = Map.of(
-                "presentationId", presentation.getId(),
-                "analysisResultId", analysisResult.getId(),
-                "adminEmail", ADMIN_EMAIL,
-                "title", DUMMY_TITLE,
-                "includedStatuses", List.of("훌륭해요", "발음", "누락", "불필요한 표현")
+                "targetUserEmail", targetUser.getEmail(),
+                "targetUserId", targetUser.getId(),
+                "totalCreated", createdItems.size(),
+                "items", createdItems
         );
 
         return ResponseEntity.ok(ApiResponse.success(responseData));
     }
 
     @Operation(
-            summary = "어드민 계정의 에러 유형별 더미 발표 리포트 삭제",
-            description = "어드민 계정에 생성된 '[테스트] 에러 유형별 분석 리포트 (4종 칩)' 발표 및 분석 결과를 삭제합니다."
+            summary = "에러 유형별 더미 발표 리포트 및 카드 4종 삭제",
+            description = "대상 유저의 더미 발표 4종 및 분석 결과를 모두 삭제합니다."
     )
     @DeleteMapping("/error-types")
     @Transactional
     public ResponseEntity<ApiResponse<String>> deleteErrorTypesDummy(
+            @RequestParam(required = false) String email,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
-        User adminUser = resolveAdminUser(customUserDetails);
-        List<Presentation> list = presentationRepository.findByUserId(adminUser.getId());
+        User targetUser = resolveAdminUser(email, customUserDetails);
+        List<Presentation> list = presentationRepository.findByUserId(targetUser.getId());
+        int deletedCount = 0;
         for (Presentation p : list) {
-            if (DUMMY_TITLE.equals(p.getTitle())) {
+            if (DUMMY_TITLES.contains(p.getTitle())) {
                 List<AnalysisResult> results = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(p.getId());
                 analysisResultRepository.deleteAll(results);
                 analysisResultRepository.flush();
                 presentationRepository.delete(p);
                 presentationRepository.flush();
+                deletedCount++;
             }
         }
-        return ResponseEntity.ok(ApiResponse.success("더미 발표 데이터가 삭제되었습니다."));
+        return ResponseEntity.ok(ApiResponse.success("더미 발표 데이터 " + deletedCount + "건이 삭제되었습니다."));
     }
 
-    private User resolveAdminUser(CustomUserDetails customUserDetails) {
+    private User resolveAdminUser(String email, CustomUserDetails customUserDetails) {
+        if (email != null && !email.trim().isEmpty()) {
+            return userRepository.findByEmail(email.trim()).orElseGet(() -> {
+                User newUser = User.builder()
+                        .email(email.trim())
+                        .nickname("테스트유저")
+                        .isTermsAgreement(true)
+                        .isProfileComplete(true)
+                        .build();
+                return userRepository.save(newUser);
+            });
+        }
         if (customUserDetails != null && customUserDetails.getUser() != null) {
             return customUserDetails.getUser();
         }
@@ -298,4 +410,3 @@ public class AdminDummyController {
                 """.trim();
     }
 }
-*/
