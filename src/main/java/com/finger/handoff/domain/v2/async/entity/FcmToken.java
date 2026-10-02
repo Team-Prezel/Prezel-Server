@@ -24,4 +24,8 @@ public class FcmToken {
         this.user = user;
         this.token = token;
     }
+
+    public void updateUser(User user) {
+        this.user = user;
+    }
 }
