@@ -125,6 +125,7 @@ public class BadgeEventListener {
         User user = userRepository.findById(userId).orElseThrow();
 
         userBadgeRepository.save(new UserBadge(user, badgeType));
+        log.info("뱃지 획득 및 지급 완료: userId={}, badgeType={}", userId, badgeType);
 
         sendBadgeSse(userId, badgeType);
     }
@@ -144,6 +145,7 @@ public class BadgeEventListener {
                         .name("badge_unlocked")
                         .data(response));
             } catch (IOException e) {
+                log.warn("뱃지 SSE 전송 실패 (클라이언트 연결 종료) - userId: {}", userId);
                 SseController.emitters.remove(userId);
             }
         }

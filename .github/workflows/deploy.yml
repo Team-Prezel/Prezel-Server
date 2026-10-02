@@ -69,15 +69,28 @@ jobs:
             # 2. handoff-net 네트워크 생성 (없을 경우)
             sudo docker network inspect handoff-net >/dev/null 2>&1 || sudo docker network create handoff-net
 
-            # 3. 백엔드 배포
+            # 3. 로그 디렉토리 생성 및 권한 부여
+            mkdir -p /home/ubuntu/logs && sudo chmod 777 /home/ubuntu/logs
+
+            # 4. 백엔드 배포
             sudo docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
             sudo docker pull audwns03/handoff
             sudo docker stop handoff || true
             sudo docker rm -f handoff || true 
-            sudo docker run -d --network handoff-net -p 80:8080 -e SPRING_PROFILES_ACTIVE=prod --name handoff audwns03/handoff
+            sudo docker run -d \
+              --name handoff \
+              --network handoff-net \
+              -p 80:8080 \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              -e LOGGING_FILE_NAME=/app/logs/handoff.log \
+              -e LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE=10MB \
+              -e LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY=7 \
+              -e LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP=100MB \
+              -v /home/ubuntu/logs:/app/logs \
+              audwns03/handoff
             sudo docker image prune -f
 
-            # 4. 모니터링(Prometheus & Grafana) 컨테이너 기동
+            # 5. 모니터링(Prometheus & Grafana) 컨테이너 기동
             sudo docker stop prometheus || true
             sudo docker rm -f prometheus || true
             sudo docker run -d \
@@ -108,3 +121,29 @@ jobs:
               -v grafana_data:/var/lib/grafana \
               -v /home/ubuntu/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro \
               grafana/grafana:10.4.2
+
+            # 6. 로깅(Loki & Promtail) 컨테이너 기동
+            sudo docker stop loki || true
+            sudo docker rm -f loki || true
+            sudo docker run -d \
+              --name loki \
+              --restart unless-stopped \
+              --network handoff-net \
+              --memory 150M \
+              -v /home/ubuntu/monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro \
+              -v loki_data:/loki \
+              grafana/loki:2.9.8 \
+              -config.file=/etc/loki/loki-config.yml
+
+            sudo docker stop promtail || true
+            sudo docker rm -f promtail || true
+            sudo docker run -d \
+              --name promtail \
+              --restart unless-stopped \
+              --network handoff-net \
+              --memory 100M \
+              -v /home/ubuntu/monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro \
+              -v /home/ubuntu/logs:/var/log/handoff:ro \
+              -v promtail_positions:/tmp \
+              grafana/promtail:2.9.8 \
+              -config.file=/etc/promtail/promtail-config.yml

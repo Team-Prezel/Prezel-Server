@@ -106,11 +106,18 @@ public class PracticeService {
                         return response;
                     } else if (result.getReason() == ResultReason.NoMatch) {
                         NoMatchDetails noMatchDetails = NoMatchDetails.fromResult(result);
+                        log.warn("연습 발음 인식 실패 (NoMatch): reason={}, userId={}", noMatchDetails.getReason(), userId);
                         if (noMatchDetails.getReason() == NoMatchReason.InitialSilenceTimeout) {
                             throw new BusinessException(ErrorCode.SILENT_AUDIO_DETECTED);
                         }
                         throw new BusinessException(ErrorCode.VOICE_RECOGNITION_FAILED);
+                    } else if (result.getReason() == ResultReason.Canceled) {
+                        CancellationDetails cancellation = CancellationDetails.fromResult(result);
+                        log.error("Azure Speech 연습 분석 취소/오류: Reason={}, ErrorCode={}, ErrorDetails={}, userId={}",
+                                cancellation.getReason(), cancellation.getErrorCode(), cancellation.getErrorDetails(), userId);
+                        throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
                     } else {
+                        log.error("Azure Speech 연습 분석 알 수 없는 결과: Reason={}, userId={}", result.getReason(), userId);
                         throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
                     }
                 }
@@ -119,6 +126,7 @@ public class PracticeService {
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
+            log.error("연습 음성 분석 처리 중 예외 발생: userId={}, error={}", userId, e.getMessage(), e);
             throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         } finally {
             if (convertedWavFile != null && convertedWavFile.exists()) {

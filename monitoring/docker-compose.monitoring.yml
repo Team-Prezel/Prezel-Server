@@ -41,6 +41,37 @@ services:
         limits:
           memory: 200M
 
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - handoff-net
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /home/ubuntu/logs:/var/log/handoff:ro
+      - promtail_positions:/tmp
+    networks:
+      - handoff-net
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+
 networks:
   handoff-net:
     external: true
@@ -48,3 +79,5 @@ networks:
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:
+  promtail_positions:

@@ -9,6 +9,7 @@ import com.finger.handoff.global.error.model.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.Base64;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class KakaoOidcValidator {
 
     private final KakaoJwksClient kakaoJwksClient;
@@ -69,6 +71,7 @@ public class KakaoOidcValidator {
             return claims;
 
         } catch (Exception e) {
+            log.error("카카오 OIDC id_token 검증 실패: {}", e.getMessage(), e);
             throw new BusinessException(ErrorCode.INVALID_ID_TOKEN);
         }
     }

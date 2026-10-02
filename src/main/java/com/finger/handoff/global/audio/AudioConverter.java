@@ -1,5 +1,6 @@
 package com.finger.handoff.global.audio;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import ws.schild.jave.Encoder;
@@ -9,6 +10,7 @@ import ws.schild.jave.encode.EncodingAttributes;
 
 import java.io.File;
 
+@Slf4j
 @Component
 public class AudioConverter {
 
@@ -38,8 +40,7 @@ public class AudioConverter {
             return convertedWavFile;
 
         } catch (Exception e) {
-            // 💡 실제 어떤 에러가 터졌는지 콘솔에 자세히 출력합니다.
-            e.printStackTrace();
+            log.error("MultipartFile 오디오 포맷 변환 실패: ", e);
 
             if (convertedWavFile != null && convertedWavFile.exists()) {
                 convertedWavFile.delete();
@@ -75,7 +76,7 @@ public class AudioConverter {
             return convertedWavFile;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("File 오디오 포맷 변환 실패 (파일명: {}): ", originalFile != null ? originalFile.getName() : "null", e);
 
             if (convertedWavFile != null && convertedWavFile.exists()) {
                 convertedWavFile.delete();
