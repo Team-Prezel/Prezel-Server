@@ -10,11 +10,13 @@ import com.finger.handoff.global.error.model.ErrorCode;
 import com.finger.handoff.global.security.provider.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserService userService;
@@ -54,6 +56,7 @@ public class AuthService {
 
         if (user.getRefreshToken() == null || !user.getRefreshToken().equals(oldRefreshToken)) {
             user.deleteRefreshToken();
+            log.error("보안 위험: Refresh Token 불일치 감지 (RTR 토큰 탈취 의심) - userId: {}", userId);
             throw new BusinessException(ErrorCode.TOKEN_STOLEN);
         }
         String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());

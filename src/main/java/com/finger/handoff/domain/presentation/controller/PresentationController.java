@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/recording")
 @RequiredArgsConstructor
+@Slf4j
 public class PresentationController {
 
     private final PresentationService presentationService;
@@ -82,6 +84,7 @@ public class PresentationController {
             try {
                 finalScript = new String(request.getScriptFile().getBytes(), StandardCharsets.UTF_8);
             } catch (IOException e) {
+                log.error("대본 파일 읽기 실패 (파일명: {})", request.getScriptFile().getOriginalFilename(), e);
                 throw new BusinessException(ErrorCode.SCRIPT_FILE_READ_FAILED);
             }
         }

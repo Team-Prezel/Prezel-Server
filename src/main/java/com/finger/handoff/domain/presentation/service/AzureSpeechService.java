@@ -127,7 +127,13 @@ public class AzureSpeechService {
                 });
 
                 recognizer.canceled.addEventListener((s, e) -> {
-                    log.warn("Azure 음성 인식 취소됨 (Canceled)");
+                    try {
+                        CancellationDetails details = CancellationDetails.fromResult(e.getResult());
+                        log.error("Azure 음성 인식 취소(Canceled) 발생 - Reason: {}, ErrorCode: {}, ErrorDetails: {}",
+                                details.getReason(), details.getErrorCode(), details.getErrorDetails());
+                    } catch (Exception ex) {
+                        log.error("Azure 음성 인식 취소(Canceled) 발생 - 에러 상세 파싱 실패: ", ex);
+                    }
                     latch.countDown();
                 });
 

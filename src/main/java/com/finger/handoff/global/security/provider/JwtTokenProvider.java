@@ -79,13 +79,13 @@ public class JwtTokenProvider {
             return true; // 예외가 터지지 않았다면 정상적이고 유효한 토큰임
 
         } catch (SecurityException | MalformedJwtException | SignatureException e) {
-            log.error("잘못된 JWT 서명입니다.");
+            log.warn("잘못된 JWT 서명입니다.");
         } catch (ExpiredJwtException e) {
-            log.error("만료된 JWT 토큰입니다.");
+            log.warn("만료된 JWT 토큰입니다.");
         } catch (UnsupportedJwtException e) {
-            log.error("지원되지 않는 JWT 토큰입니다.");
+            log.warn("지원되지 않는 JWT 토큰입니다.");
         } catch (IllegalArgumentException e) {
-            log.error("JWT 토큰이 잘못되었습니다 (내용이 비어있음 등).");
+            log.warn("JWT 토큰이 잘못되었습니다 (내용이 비어있음 등).");
         }
 
         return false; // 위 예외 중 하나라도 발생했다면 유효하지 않은 토큰임

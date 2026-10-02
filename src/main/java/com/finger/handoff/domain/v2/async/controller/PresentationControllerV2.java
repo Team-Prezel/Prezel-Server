@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +27,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/v2/recording")
 @RequiredArgsConstructor
+@Slf4j
 public class PresentationControllerV2 {
 
     private final PresentationServiceV2 presentationServiceV2;
@@ -46,6 +48,7 @@ public class PresentationControllerV2 {
             try {
                 finalScript = new String(scriptFile.getBytes(), StandardCharsets.UTF_8);
             } catch (IOException e) {
+                log.error("대본 파일 읽기 실패 (파일명: {})", scriptFile.getOriginalFilename(), e);
                 throw new BusinessException(ErrorCode.SCRIPT_FILE_READ_FAILED);
             }
         }
@@ -88,6 +91,7 @@ public class PresentationControllerV2 {
             try {
                 finalScript = new String(scriptFile.getBytes(), StandardCharsets.UTF_8);
             } catch (IOException e) {
+                log.error("대본 파일 읽기 실패 (파일명: {})", scriptFile.getOriginalFilename(), e);
                 throw new BusinessException(ErrorCode.SCRIPT_FILE_READ_FAILED);
             }
         } else if (hasTextScript) {
