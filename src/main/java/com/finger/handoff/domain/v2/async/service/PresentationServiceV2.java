@@ -68,6 +68,7 @@ public class PresentationServiceV2 {
                 .audioUrl(audioUrl)
                 .build();
         analysisResultRepository.save(analysisResult);
+        log.info("신규 발표 분석 초기 데이터 등록 완료: userId={}, presentationId={}, analysisResultId={}", user.getId(), presentation.getId(), analysisResult.getId());
 
         return InitDataDto.builder()
                 .presentationId(presentation.getId())
@@ -117,6 +118,7 @@ public class PresentationServiceV2 {
                 .audioUrl(targetAudioUrl)
                 .build();
         analysisResultRepository.save(newResult);
+        log.info("발표 재분석 초기 데이터 등록 완료: userId={}, presentationId={}, analysisResultId={}", user.getId(), presentation.getId(), newResult.getId());
 
         return InitDataDto.builder()
                 .presentationId(presentation.getId())

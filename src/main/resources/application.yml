@@ -34,3 +34,18 @@ management:
   metrics:
     tags:
       application: handoff
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  file:
+    name: /app/logs/handoff.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      max-history: 7
+      total-size-cap: 100MB

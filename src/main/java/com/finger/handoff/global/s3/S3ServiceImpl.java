@@ -55,7 +55,8 @@ public class S3ServiceImpl implements S3Service {
                     .key(s3FileName)
                     .build()).toExternalForm();
 
-        } catch (IOException e) {
+        } catch (Exception e) {
+            log.error("S3 프로필 이미지 업로드 실패 (파일명: {}, 버킷: {}): ", originalFilename, bucketName, e);
             throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
@@ -82,6 +83,7 @@ public class S3ServiceImpl implements S3Service {
              * (사진 등록 로직에 기존 사진 있을시 삭제하라는 로직 넣을거 => 등록 및 수정 로직을 하나로 합침)
              * 이거 안잡으면 @Transactional 땜에 롤백 당함 -> 유저는 평생 사진 못바꾸는 버그 발생
              */
+            log.warn("기존 S3 프로필 사진 삭제 실패 (무시됨): {}", imageUrl, e);
         }
     }
 
@@ -111,8 +113,8 @@ public class S3ServiceImpl implements S3Service {
                     .key(s3FileName)
                     .build()).toExternalForm();
 
-        } catch (IOException e) {
-            log.error("S3 오디오 파일 업로드 상세 실패 원인: ", e);
+        } catch (Exception e) {
+            log.error("S3 오디오 파일 업로드 상세 실패 원인 (파일명: {}, 버킷: {}): ", originalFilename, bucketName, e);
             throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }
@@ -164,8 +166,8 @@ public class S3ServiceImpl implements S3Service {
                     .key(s3FileName)
                     .build()).toExternalForm();
 
-        } catch (IOException e) {
-            log.error("S3 뱃지 이미지 업로드 상세 실패 원인: ", e);
+        } catch (Exception e) {
+            log.error("S3 뱃지 이미지 업로드 상세 실패 원인 (뱃지명: {}, 파일명: {}, 버킷: {}): ", badgeName, originalFilename, bucketName, e);
             throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }

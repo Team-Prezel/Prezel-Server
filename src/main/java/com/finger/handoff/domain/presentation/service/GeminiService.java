@@ -96,13 +96,15 @@ public class GeminiService {
                     .path("content").path("parts").get(0)
                     .path("text").asText();
 
-            log.info("Gemini All-in-One 응답: {}", content);
+            log.info("Gemini All-in-One 응답 수신 완료 (응답 길이: {}자)", content != null ? content.length() : 0);
+            log.debug("Gemini All-in-One 응답 원문: {}", content);
 
             int jsonStartIndex = content.indexOf("{");
             int jsonEndIndex = content.lastIndexOf("}");
             if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonStartIndex < jsonEndIndex) {
                 content = content.substring(jsonStartIndex, jsonEndIndex + 1);
             } else {
+                log.error("Gemini 응답에서 JSON 객체를 찾을 수 없습니다. 응답 내용: {}", content);
                 throw new RuntimeException("JSON 객체를 찾을 수 없습니다.");
             }
 
@@ -184,6 +186,10 @@ public class GeminiService {
                     .expectedQuestionsJson(expectedQuestionsJson)
                     .build();
 
+        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+            log.error("Gemini API HTTP 에러 발생 - StatusCode: {}, ResponseBody: {}",
+                    httpEx.getStatusCode(), httpEx.getResponseBodyAsString(), httpEx);
+            throw new RuntimeException("AI 연동 실패 (HTTP " + httpEx.getStatusCode() + ")", httpEx);
         } catch (Exception e) {
             log.error("Gemini 통합 분석 중 에러 발생: ", e);
             throw new RuntimeException("AI 연동 실패", e);

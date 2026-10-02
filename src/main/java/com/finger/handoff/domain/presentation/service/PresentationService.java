@@ -235,7 +235,7 @@ public class PresentationService {
             throw e;
         } catch (Exception e) {
             rollbackS3File(audioUrl);
-            log.error("발표 분석 중 오류 발생", e);
+            log.error("발표 분석 중 오류 발생 (presentationId: {}, userId: {})", presentation.getId(), presentation.getUser().getId(), e);
             throw new BusinessException(ErrorCode.VOICE_ANALYSIS_FAILED);
         } finally {
             if (wavFile != null && wavFile.exists()) {
@@ -272,7 +272,7 @@ public class PresentationService {
                         new TypeReference<List<PresentationDTO.SentenceAnalysisDetail>>() {});
             }
         } catch (JsonProcessingException e) {
-            log.error("단어 파싱 오류", e);
+            log.error("단어 파싱 오류 (analysisResultId: {})", analysisResultId, e);
         }
 
         return PresentationDTO.WordDetailResponse.builder()
@@ -299,7 +299,7 @@ public class PresentationService {
                         new TypeReference<List<PresentationDTO.ScriptAnalysisDetail>>() {});
             }
         } catch (JsonProcessingException e) {
-            log.error("대본 파싱 오류", e);
+            log.error("대본 파싱 오류 (analysisResultId: {})", analysisResultId, e);
         }
 
         return PresentationDTO.ScriptDetailResponse.builder()
@@ -479,7 +479,7 @@ public class PresentationService {
                         new TypeReference<List<PresentationDTO.ExpectedQuestionData>>() {});
             }
         } catch (Exception e) {
-            log.error("예상 질문 JSON 파싱 에러", e);
+            log.error("예상 질문 JSON 파싱 에러 (presentationId: {}, analysisResultId: {})", presentation.getId(), latestResult.getId(), e);
         }
 
         int duration = latestResult.getDurationSeconds() != null ? latestResult.getDurationSeconds() : 0;
@@ -631,7 +631,7 @@ public class PresentationService {
                         new TypeReference<List<PresentationDTO.ExpectedQuestionData>>() {});
             }
         } catch (Exception e) {
-            log.error("예상 질문 JSON 파싱 에러", e);
+            log.error("예상 질문 JSON 파싱 에러 (presentationId: {}, analysisResultId: {})", presentation.getId(), targetResult.getId(), e);
         }
 
         int duration = targetResult.getDurationSeconds() != null ? targetResult.getDurationSeconds() : 0;
@@ -758,7 +758,7 @@ public class PresentationService {
                 details = objectMapper.readValue(analysisResult.getScriptDetailsJson(),
                         new TypeReference<List<PresentationDTO.ScriptAnalysisDetail>>() {});
             } catch (JsonProcessingException e) {
-                log.error("대본 교정 중 JSON 파싱 오류", e);
+                log.error("대본 교정 중 JSON 파싱 오류 (analysisResultId: {})", analysisResultId, e);
                 throw new BusinessException(ErrorCode.SERVER_ERROR);
             }
         }
@@ -817,7 +817,7 @@ public class PresentationService {
             String updatedJson = objectMapper.writeValueAsString(updatedDetails);
             analysisResult.updateScriptDetails(updatedJson, spellCount, grammarCount);
         } catch (JsonProcessingException e) {
-            log.error("대본 교정 후 JSON 직렬화 오류", e);
+            log.error("대본 교정 후 JSON 직렬화 오류 (analysisResultId: {})", analysisResultId, e);
             throw new BusinessException(ErrorCode.SERVER_ERROR);
         }
 
