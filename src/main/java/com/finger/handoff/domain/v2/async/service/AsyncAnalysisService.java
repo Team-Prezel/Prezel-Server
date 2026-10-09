@@ -97,7 +97,7 @@ public class AsyncAnalysisService {
         }
     }
 
-    private AnalysisStatus determineErrorStatus(Exception e) {
+    AnalysisStatus determineErrorStatus(Exception e) {
         Throwable current = e;
         while (current != null) {
             if (current instanceof BusinessException be) {
