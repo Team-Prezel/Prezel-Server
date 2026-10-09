@@ -97,15 +97,18 @@ public class AsyncAnalysisService {
         }
     }
 
-    private AnalysisStatus determineErrorStatus(Exception e) {
+    AnalysisStatus determineErrorStatus(Exception e) {
         Throwable current = e;
         while (current != null) {
             if (current instanceof BusinessException be) {
                 ErrorCode code = be.getErrorCode();
-                if (code == ErrorCode.VOICE_RECOGNITION_FAILED || code == ErrorCode.SILENT_AUDIO_DETECTED) {
+                if (code == ErrorCode.VOICE_RECOGNITION_FAILED) {
                     return AnalysisStatus.ERR_VOICE_RECOG;
-                } else if (code == ErrorCode.FILE_CONVERT_FAILED || code == ErrorCode.INVALID_FILE_EXTENSION
-                        || code == ErrorCode.FILE_UPLOAD_FAILED || code == ErrorCode.FILE_IS_EMPTY) {
+                } else if (code == ErrorCode.SILENT_AUDIO_DETECTED
+                        || code == ErrorCode.FILE_CONVERT_FAILED
+                        || code == ErrorCode.INVALID_FILE_EXTENSION
+                        || code == ErrorCode.FILE_UPLOAD_FAILED
+                        || code == ErrorCode.FILE_IS_EMPTY) {
                     return AnalysisStatus.ERR_FILE_RECOG;
                 }
             }
@@ -116,10 +119,10 @@ public class AsyncAnalysisService {
                 + (e.getCause() != null && e.getCause().getMessage() != null ? e.getCause().getMessage() : "");
         String upper = fullMessage.toUpperCase();
 
-        if (upper.contains("VOICE_RECOGNITION_FAILED") || upper.contains("SILENT") || fullMessage.contains("음성을 인식하지 못했")) {
-            return AnalysisStatus.ERR_VOICE_RECOG;
-        } else if (upper.contains("FILE") || upper.contains("FORMAT") || fullMessage.contains("포맷") || fullMessage.contains("변환") || fullMessage.contains("파일 형식")) {
+        if (upper.contains("SILENT") || upper.contains("FILE") || upper.contains("FORMAT") || fullMessage.contains("포맷") || fullMessage.contains("변환") || fullMessage.contains("파일 형식") || fullMessage.contains("무음")) {
             return AnalysisStatus.ERR_FILE_RECOG;
+        } else if (upper.contains("VOICE_RECOGNITION_FAILED") || fullMessage.contains("음성을 인식하지 못했")) {
+            return AnalysisStatus.ERR_VOICE_RECOG;
         }
 
         return AnalysisStatus.ERR_ANALYSIS;
