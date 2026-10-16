@@ -88,7 +88,7 @@ public class AuthController {
     @DeleteMapping("/withdraw")
     public ResponseEntity<ApiResponse<Void>> withdraw(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody UserWithdrawRequest request) {
+            @RequestBody(required = false) UserWithdrawRequest request) {
 
         Long userId = userDetails.getId();
         userService.withdraw(userId, request);

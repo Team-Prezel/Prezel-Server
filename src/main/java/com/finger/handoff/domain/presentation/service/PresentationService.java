@@ -368,6 +368,14 @@ public class PresentationService {
         deletePresentationEntity(presentation, user);
     }
 
+    @Transactional
+    public void deleteAllByUser(User user) {
+        List<Presentation> presentations = presentationRepository.findByUserId(user.getId());
+        for (Presentation presentation : presentations) {
+            deletePresentationEntity(presentation, user);
+        }
+    }
+
     private void deletePresentationEntity(Presentation presentation, User user) {
         Long actualPresentationId = presentation.getId();
 
