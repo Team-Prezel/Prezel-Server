@@ -312,20 +312,71 @@ public class PresentationService {
 
     @Transactional
     public void deletePresentation(Long presentationId, User user) {
+        // 1. 요청자 소유의 Presentation ID로 먼저 매칭 시도
         Presentation presentation = presentationRepository.findById(presentationId)
+                .filter(p -> p.getUser().getId().equals(user.getId()))
                 .orElseGet(() -> {
-                    log.info("Presentation ID {}를 찾지 못하여 AnalysisResult ID로 재조회합니다.", presentationId);
+                    // 2. 요청자 소유 Presentation이 아니면, 요청자 소유의 AnalysisResult ID인지 fallback 확인 (ID 중복 충돌 방어)
                     return analysisResultRepository.findById(presentationId)
                             .map(AnalysisResult::getPresentation)
-                            .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
+                            .filter(p -> p != null && p.getUser().getId().equals(user.getId()))
+                            .orElseGet(() -> {
+                                // 3. 둘 다 내 소유가 아니라면: 타인의 presentation/analysisResult인지 확인하여 403 or 404 분기
+                                Presentation otherPres = presentationRepository.findById(presentationId).orElse(null);
+                                if (otherPres != null && !otherPres.getUser().getId().equals(user.getId())) {
+                                    log.warn("발표 삭제 권한 없음: presentationId={}, 소유자 userId={}, 요청자 userId={}",
+                                            presentationId, otherPres.getUser().getId(), user.getId());
+                                    throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+                                }
+                                AnalysisResult otherResult = analysisResultRepository.findById(presentationId).orElse(null);
+                                if (otherResult != null && otherResult.getPresentation() != null &&
+                                        !otherResult.getPresentation().getUser().getId().equals(user.getId())) {
+                                    log.warn("발표 삭제 권한 없음 (AnalysisResult 기준): analysisResultId={}, 소유자 userId={}, 요청자 userId={}",
+                                            presentationId, otherResult.getPresentation().getUser().getId(), user.getId());
+                                    throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
+                                }
+                                throw new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND);
+                            });
                 });
 
+        deletePresentationEntity(presentation, user);
+    }
+
+    @Transactional
+    public void deleteByAnalysisResultId(Long analysisResultId, User user) {
+        AnalysisResult analysisResult = analysisResultRepository.findById(analysisResultId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        Presentation presentation = analysisResult.getPresentation();
+        if (presentation == null) {
+            log.info("고아 AnalysisResult ID {}를 삭제합니다.", analysisResultId);
+            if (analysisResult.getAudioUrl() != null) {
+                s3Service.deleteAudioFile(analysisResult.getAudioUrl());
+            }
+            analysisResultRepository.delete(analysisResult);
+            analysisResultRepository.flush();
+            log.info("고아 분석 결과 삭제 완료: analysisResultId={}", analysisResultId);
+            return;
+        }
+
         if (!presentation.getUser().getId().equals(user.getId())) {
-            log.warn("발표 삭제 권한 없음: presentationId={}, 소유자 userId={}, 요청자 userId={}",
-                    presentation.getId(), presentation.getUser().getId(), user.getId());
+            log.warn("리포트 삭제 권한 없음: analysisResultId={}, presentationId={}, 소유자 userId={}, 요청자 userId={}",
+                    analysisResultId, presentation.getId(), presentation.getUser().getId(), user.getId());
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACCESS);
         }
 
+        deletePresentationEntity(presentation, user);
+    }
+
+    @Transactional
+    public void deleteAllByUser(User user) {
+        List<Presentation> presentations = presentationRepository.findByUserId(user.getId());
+        for (Presentation presentation : presentations) {
+            deletePresentationEntity(presentation, user);
+        }
+    }
+
+    private void deletePresentationEntity(Presentation presentation, User user) {
         Long actualPresentationId = presentation.getId();
 
         // 1. 연관된 회고(Review) 선행 삭제
