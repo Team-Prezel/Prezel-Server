@@ -1,6 +1,7 @@
 package com.finger.handoff.domain.v2.async.controller;
 
 import com.finger.handoff.domain.presentation.dto.PresentationDTO;
+import com.finger.handoff.domain.presentation.service.PresentationService;
 import com.finger.handoff.domain.v2.async.dto.PresentationCardResponse;
 import com.finger.handoff.domain.v2.async.service.AsyncAnalysisService;
 import com.finger.handoff.domain.v2.async.service.PresentationServiceV2;
@@ -32,6 +33,7 @@ public class PresentationControllerV2 {
 
     private final PresentationServiceV2 presentationServiceV2;
     private final AsyncAnalysisService asyncAnalysisService;
+    private final PresentationService presentationService;
 
     @Operation(summary = "발표 음성 및 대본 비동기 분석 시작", description = "음성 녹음과 대본을 접수하여 즉시 presentationId와 analysisResultId를 반환하고, 백그라운드에서 분석을 수행합니다. 완료 시 FCM 푸시가 발송됩니다.")
     @PostMapping(value = "/analyze", consumes = "multipart/form-data")
@@ -124,5 +126,25 @@ public class PresentationControllerV2 {
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
         return ApiResponse.success(presentationServiceV2.getUpcomingCards(customUserDetails.getUser()));
+    }
+
+    @Operation(summary = "발표(분석 리포트) 삭제 (V2)", description = "특정 발표와 연관된 모든 분석 결과를 전체 삭제합니다.")
+    @DeleteMapping("/{presentationId}")
+    public ApiResponse<Void> deletePresentationV2(
+            @Parameter(description = "삭제할 발표 ID") @PathVariable Long presentationId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.deletePresentation(presentationId, customUserDetails.getUser());
+        return ApiResponse.success();
+    }
+
+    @Operation(summary = "발표 분석 결과(리포트) 삭제 (V2)", description = "특정 분석 결과 ID(analysisResultId)로 해당 분석 결과 및 연관 발표를 전체 삭제합니다.")
+    @DeleteMapping("/analyze/{analysisResultId}")
+    public ApiResponse<Void> deleteAnalysisResultV2(
+            @Parameter(description = "삭제할 분석 결과 ID") @PathVariable Long analysisResultId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.deleteByAnalysisResultId(analysisResultId, customUserDetails.getUser());
+        return ApiResponse.success();
     }
 }

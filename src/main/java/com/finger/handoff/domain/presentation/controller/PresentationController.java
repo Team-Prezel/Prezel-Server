@@ -184,6 +184,24 @@ public class PresentationController {
     }
 
     @Operation(
+            summary = "발표 분석 결과(리포트) 삭제",
+            description = "특정 분석 결과 ID(analysisResultId)로 해당 분석 결과 및 연관 발표를 전체 삭제합니다."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "분석 결과 또는 발표를 찾을 수 없음")
+    })
+    @DeleteMapping("/analyze/{analysisResultId}")
+    public ApiResponse<Void> deleteAnalysisResult(
+            @Parameter(description = "삭제할 분석 결과 ID") @PathVariable Long analysisResultId,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        presentationService.deleteByAnalysisResultId(analysisResultId, customUserDetails.getUser());
+        return ApiResponse.success();
+    }
+
+    @Operation(
             summary = "다가오는 발표 목록 조회 (일반 조회)",
             description = "발표일이 지나지 않은(오늘 포함) 발표 목록을 가까운 날짜순으로 조회합니다."
     )
