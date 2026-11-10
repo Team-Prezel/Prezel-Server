@@ -41,7 +41,8 @@ public class AsyncAnalysisService {
 
             AzureSpeechService.AzureAnalysisDto azureResult = azureSpeechService.analyzePronunciation(localWavPath, script);
 
-            GeminiService.GeminiAllInOneResponse geminiResult = geminiService.analyzeAll(azureResult, script, "");
+            GeminiService.GeminiAllInOneResponse geminiResult = geminiService.analyzeAll(
+                    azureResult, script, "", analysisResult.getPresentation());
 
             String wordDetailsJson = "[]";
             if (azureResult.getSentenceDetails() != null) {

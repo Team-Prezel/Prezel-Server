@@ -1,5 +1,7 @@
 package com.finger.handoff.domain.presentation.service;
 
+import com.finger.handoff.domain.presentation.prompt.SpeechSpeedPolicy;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finger.handoff.domain.presentation.dto.PresentationDTO;
@@ -626,8 +628,6 @@ public class AzureSpeechService {
     }
 
     private String evaluateSpeed(double spm) {
-        if (spm <= 210) return "느려요";
-        if (spm >= 260) return "빨라요";
-        return "적당해요";
+        return SpeechSpeedPolicy.evaluate(spm);
     }
 }

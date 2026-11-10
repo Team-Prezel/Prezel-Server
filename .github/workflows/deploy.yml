@@ -82,6 +82,7 @@ jobs:
               --network handoff-net \
               -p 80:8080 \
               -e SPRING_PROFILES_ACTIVE=prod \
+              -e GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent \
               -e LOGGING_FILE_NAME=/app/logs/handoff.log \
               -e LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE=10MB \
               -e LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY=7 \
