@@ -128,7 +128,7 @@ public class PresentationService {
 
             GeminiService.GeminiAllInOneResponse aiResponse;
             try {
-                aiResponse = geminiService.analyzeAll(azureResult, presentation.getScript(), null);
+                aiResponse = geminiService.analyzeAll(azureResult, presentation.getScript(), null, presentation);
             } catch (Exception e) {
                 log.error("AI 통합 분석 실패 (강제 방어 모드 발동): ", e);
                 aiResponse = GeminiService.GeminiAllInOneResponse.builder()
@@ -763,6 +763,14 @@ public class PresentationService {
 
     @Transactional(readOnly = true)
     public JsonNode testPromptWithExistingData(Long presentationId, String instruction, GeminiService.PromptTestType type) {
+        PromptTestData data = loadPromptTestData(presentationId);
+        return geminiService.testSinglePrompt(data.analysis(), data.presentation().getScript(), instruction, type, data.presentation());
+    }
+
+    private record PromptTestData(Presentation presentation, AzureSpeechService.AzureAnalysisDto analysis) {
+    }
+
+    private PromptTestData loadPromptTestData(Long presentationId) {
         Presentation presentation = presentationRepository.findById(presentationId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
 
@@ -783,7 +791,7 @@ public class PresentationService {
             log.error("테스트 중 단어 파싱 오류", e);
         }
 
-        AzureSpeechService.AzureAnalysisDto mockAzureDto = AzureSpeechService.AzureAnalysisDto.builder()
+        AzureSpeechService.AzureAnalysisDto analysis = AzureSpeechService.AzureAnalysisDto.builder()
                 .durationSeconds(latestResult.getDurationSeconds())
                 .spm(latestResult.getSpm())
                 .speedEval(latestResult.getSpeedEval())
@@ -792,7 +800,7 @@ public class PresentationService {
                 .sentenceDetails(sentenceDetails)
                 .build();
 
-        return geminiService.testSinglePrompt(mockAzureDto, presentation.getScript(), instruction, type);
+        return new PromptTestData(presentation, analysis);
     }
 
     @Transactional
@@ -922,25 +930,7 @@ public class PresentationService {
 
     @Transactional(readOnly = true)
     public GeminiService.GeminiAllInOneResponse testAllInOnePrompt(Long presentationId, String combinedInstruction) {
-        // 1. 기존 테스트와 동일하게 DB에서 기존 발표 및 분석 데이터 조회
-        Presentation presentation = presentationRepository.findById(presentationId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PRESENTATION_NOT_FOUND));
-
-        List<AnalysisResult> historyResults = analysisResultRepository.findByPresentationIdOrderByCreatedAtAsc(presentationId);
-        AnalysisResult targetResult = historyResults.get(0);
-
-        // 2. DB 데이터를 바탕으로 Azure 분석 데이터(Mock) 복원
-        AzureSpeechService.AzureAnalysisDto mockAzureDto = AzureSpeechService.AzureAnalysisDto.builder()
-                .durationSeconds(targetResult.getDurationSeconds())
-                .spm(targetResult.getSpm())
-                .speedEval(targetResult.getSpeedEval())
-                .accuracyScore(targetResult.getAccuracyScore())
-                .scriptMatchRate(targetResult.getScriptMatchRate())
-                // ... (필요시 sentenceDetails 복원 로직 추가)
-                .build();
-
-        // 3. ✨ 핵심: 실제 서비스에서 사용하는 analyzeAll 메서드를 그대로 호출!
-        // (GeminiService.analyzeAll이 combinedInstruction을 받도록 파라미터를 추가해야 함)
-        return geminiService.analyzeAll(mockAzureDto, presentation.getScript(), combinedInstruction);
+        PromptTestData data = loadPromptTestData(presentationId);
+        return geminiService.analyzeAll(data.analysis(), data.presentation().getScript(), combinedInstruction, data.presentation());
     }
 }

@@ -2,8 +2,19 @@ package com.finger.handoff.domain.presentation.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finger.handoff.domain.presentation.entity.Presentation;
+import com.finger.handoff.domain.presentation.prompt.PresentationPromptBuilder;
+import com.finger.handoff.domain.presentation.prompt.GeminiRequestFactory;
+import com.finger.handoff.domain.presentation.prompt.ScriptCorrectionNormalizer;
+import com.finger.handoff.domain.presentation.prompt.PresentationPromptInput;
+import com.finger.handoff.domain.presentation.prompt.CorrectionReviewPromptBuilder;
+import com.finger.handoff.domain.presentation.prompt.QuotedComparisonGuard;
+import com.finger.handoff.domain.presentation.prompt.NounSpellingGuard;
+import com.finger.handoff.domain.presentation.prompt.PriceTemporalSpellingRule;
+import com.finger.handoff.domain.presentation.prompt.PresentationPromptPolicy;
+import com.finger.handoff.domain.presentation.prompt.EditorialSpellingSynchronizer;
+import com.finger.handoff.domain.presentation.prompt.FeedbackReviewPromptBuilder;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.finger.handoff.domain.presentation.dto.PresentationDTO;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -18,8 +29,6 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -33,11 +42,31 @@ public class GeminiService {
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
 
+    @Value("${gemini.correction-review.enabled:true}")
+    private boolean correctionReviewEnabled = true;
+
+    @Value("${gemini.correction-review.mode:DECISIONS}")
+    private String correctionReviewMode = "DECISIONS";
+
+    @Value("${gemini.optimized-prompt.enabled:true}")
+    private boolean optimizedPromptEnabled = true;
+
+    @Value("${gemini.feedback-review.enabled:true}")
+    private boolean feedbackReviewEnabled = true;
+
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final PresentationPromptBuilder promptBuilder;
+    private final CorrectionReviewPromptBuilder correctionReviewPromptBuilder;
+    private final PresentationPromptPolicy promptPolicy;
+    private final FeedbackReviewPromptBuilder feedbackReviewPromptBuilder;
 
     public GeminiService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+        this.promptBuilder = new PresentationPromptBuilder(objectMapper);
+        this.correctionReviewPromptBuilder = new CorrectionReviewPromptBuilder(objectMapper);
+        this.promptPolicy = new PresentationPromptPolicy(objectMapper);
+        this.feedbackReviewPromptBuilder = new FeedbackReviewPromptBuilder(objectMapper);
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);  // 연결 대기 5초
@@ -78,10 +107,21 @@ public class GeminiService {
             backoff = @Backoff(delay = 2000) // 실패 시 2초 대기 후 재시도
     )
     public GeminiAllInOneResponse analyzeAll(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript, String customInstruction) {
-        String prompt = buildAllInOnePrompt(azureResult, originalScript, customInstruction);
+        return analyze(azureResult, originalScript, customInstruction, null);
+    }
 
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
+    @Retryable(value = Exception.class, maxAttempts = 3, backoff = @Backoff(delay = 2000))
+    public GeminiAllInOneResponse analyzeAll(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript,
+                                            String customInstruction, Presentation presentation) {
+        return analyze(azureResult, originalScript, customInstruction, presentation);
+    }
+
+    private GeminiAllInOneResponse analyze(AzureSpeechService.AzureAnalysisDto azureResult, String originalScript,
+                                           String customInstruction, Presentation presentation) {
+        String prompt = buildAllInOnePrompt(azureResult, originalScript, customInstruction, presentation);
+
+        Map<String, Object> requestBody = GeminiRequestFactory.create(prompt,
+                originalScript != null && !originalScript.isBlank(), PresentationPromptBuilder.Task.ALL);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -92,9 +132,7 @@ public class GeminiService {
             String responseStr = restTemplate.postForObject(url, entity, String.class);
 
             JsonNode rootNode = objectMapper.readTree(responseStr);
-            String content = rootNode.path("candidates").get(0)
-                    .path("content").path("parts").get(0)
-                    .path("text").asText();
+            String content = extractResponseText(rootNode);
 
             log.info("Gemini All-in-One 응답 수신 완료 (응답 길이: {}자)", content != null ? content.length() : 0);
             log.debug("Gemini All-in-One 응답 원문: {}", content);
@@ -109,63 +147,48 @@ public class GeminiService {
             }
 
             JsonNode aiData = objectMapper.readTree(content);
+            JsonNode editorialData = aiData;
 
             String summary = aiData.path("summaryFeedback").asText("피드백을 생성하지 못했습니다.");
 
-            JsonNode scriptErrorsNode = aiData.path("scriptErrors");
+            JsonNode proposedCorrections = ScriptCorrectionNormalizer.normalize(objectMapper,
+                    aiData.path("scriptErrors"), originalScript);
+            if (correctionReviewEnabled && originalScript != null && !originalScript.isBlank()) {
+                boolean reviewFeedback = optimizedPromptEnabled && feedbackReviewEnabled;
+                var mode = reviewFeedback ? CorrectionReviewPromptBuilder.Mode.DECISIONS
+                        : CorrectionReviewPromptBuilder.Mode.valueOf(correctionReviewMode);
+                JsonNode reviewed = executeJsonRequest(reviewFeedback
+                        ? feedbackReviewPromptBuilder.build(PresentationPromptInput.from(azureResult, originalScript, presentation),
+                                proposedCorrections, aiData, customInstruction)
+                        : correctionReviewPromptBuilder.build(originalScript, proposedCorrections, mode));
+                proposedCorrections = correctionReviewPromptBuilder.resolve(proposedCorrections, reviewed, mode);
+                if (reviewFeedback) {
+                    feedbackReviewPromptBuilder.validate(reviewed);
+                    editorialData = reviewed;
+                    summary = reviewed.path("summaryFeedback").asText();
+                }
+            }
+            JsonNode scriptErrorsNode = PriceTemporalSpellingRule.complete(objectMapper,
+                    NounSpellingGuard.filter(QuotedComparisonGuard.filter(
+                    ScriptCorrectionNormalizer.normalize(objectMapper, proposedCorrections, originalScript), originalScript), originalScript), originalScript);
+            String scriptDetailsJson = scriptErrorsNode.toString();
 
-            if (scriptErrorsNode.isArray()) {
-                int globalSearchCursor = 0;
-
-                for (JsonNode error : scriptErrorsNode) {
-                    if (error.isObject()) {
-                        ObjectNode errorObj = (ObjectNode) error;
-
-                        String sentence = errorObj.path("sentence").asText("");
-                        String originalText = errorObj.path("originalText").asText("");
-
-                        int errorStartIndex = -1;
-                        int errorEndIndex = -1;
-
-                        if (originalScript != null && !originalText.isEmpty()) {
-
-                            int searchStart = Math.max(0, globalSearchCursor - (sentence.length() > 0 ? sentence.length() : 50));
-                            int sentenceIndex = originalScript.indexOf(sentence, searchStart);
-
-                            while (sentenceIndex != -1) {
-                                int wordSearchStart = Math.max(sentenceIndex, globalSearchCursor);
-                                errorStartIndex = originalScript.indexOf(originalText, wordSearchStart);
-
-                                if (errorStartIndex != -1 && errorStartIndex <= sentenceIndex + sentence.length()) {
-                                    break;
-                                } else {
-                                    sentenceIndex = originalScript.indexOf(sentence, sentenceIndex + 1);
-                                    errorStartIndex = -1;
-                                }
-                            }
-
-                            if (errorStartIndex == -1) {
-                                errorStartIndex = originalScript.indexOf(originalText, globalSearchCursor);
-                                if (errorStartIndex == -1) {
-                                    errorStartIndex = originalScript.indexOf(originalText);
-                                }
-                            }
-
-                            if (errorStartIndex != -1) {
-                                errorEndIndex = errorStartIndex + originalText.length();
-                                globalSearchCursor = errorEndIndex;
-                            }
-                        }
-
-                        errorObj.put("startIndex", errorStartIndex);
-                        errorObj.put("endIndex", errorEndIndex);
+            JsonNode expectedQuestionsNode = editorialData.path("expectedQuestions");
+            if (optimizedPromptEnabled) {
+                if (originalScript != null && !originalScript.isBlank()) {
+                    feedbackReviewPromptBuilder.validateExpectedQuestions(expectedQuestionsNode);
+                } else {
+                    expectedQuestionsNode = objectMapper.createArrayNode();
+                }
+                summary = EditorialSpellingSynchronizer.rewrite(originalScript, scriptErrorsNode, summary);
+                expectedQuestionsNode = expectedQuestionsNode.deepCopy();
+                if (expectedQuestionsNode.isArray()) for (JsonNode question : expectedQuestionsNode) {
+                    if (question.isObject()) for (String field : java.util.List.of("question", "answer")) {
+                        if (question.path(field).isTextual()) ((ObjectNode) question).put(field,
+                                EditorialSpellingSynchronizer.rewrite(originalScript, scriptErrorsNode, question.path(field).asText()));
                     }
                 }
             }
-
-            String scriptDetailsJson = scriptErrorsNode.isMissingNode() ? "[]" : scriptErrorsNode.toString();
-
-            JsonNode expectedQuestionsNode = aiData.path("expectedQuestions");
             String expectedQuestionsJson = expectedQuestionsNode.isMissingNode() ? "[]" : expectedQuestionsNode.toString();
 
             int spellCount = 0;
@@ -197,85 +220,20 @@ public class GeminiService {
     }
 
     private String buildAllInOnePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript, String customInstruction) {
-        StringBuilder sb = new StringBuilder();
-        boolean hasScript = originalScript != null && !originalScript.trim().isEmpty();
+        return buildAllInOnePrompt(result, originalScript, customInstruction, null);
+    }
 
-        sb.append("다음 제공되는 사용자의 [발표 음성 데이터]와 [원본 대본]을 분석해줘.\n\n");
-
-        sb.append("[발표 음성 데이터]\n");
-        sb.append("- 총 발표 시간: ").append(result.getDurationSeconds() != null ? result.getDurationSeconds() : 0).append("초\n");
-        sb.append("- 발화 속도(SPM): ").append(result.getSpm()).append("자/분\n");
-        if (result.getAccuracyScore() != null) {
-            sb.append("- 발음 정확도 점수: ").append(String.format("%.1f", result.getAccuracyScore())).append("점 / 100점\n");
+    private String buildAllInOnePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript,
+                                       String customInstruction, Presentation presentation) {
+        var input = PresentationPromptInput.from(result, originalScript, presentation);
+        if (optimizedPromptEnabled) {
+            return promptBuilder.build(input, promptPolicy.instructions(input, customInstruction), PresentationPromptBuilder.Task.ALL);
         }
-
-        if (result.getSentenceDetails() != null) {
-            long stutterCount = 0;
-            long insertionCount = 0;
-
-            for (PresentationDTO.SentenceAnalysisDetail sentenceDetail : result.getSentenceDetails()) {
-                if (sentenceDetail.getWordDetails() != null) {
-                    stutterCount += sentenceDetail.getWordDetails().stream()
-                            .filter(w -> "Stutter".equals(w.getStatus())).count();
-                    insertionCount += sentenceDetail.getWordDetails().stream()
-                            .filter(w -> "Insertion".equals(w.getStatus())).count();
-                }
-            }
-
-            sb.append("- 더듬거나 반복한 횟수: ").append(stutterCount).append("회\n");
-            sb.append("- 불필요한 추임새 횟수: ").append(insertionCount).append("회\n");
-        }
-
-        if (hasScript) {
-            sb.append("\n[원본 대본]\n").append(originalScript).append("\n\n");
-            sb.append("위 데이터를 바탕으로 다음 3가지 요청 사항을 순서대로 수행해.\n");
-
-            if (customInstruction != null && !customInstruction.trim().isEmpty()) {
-                sb.append("[작업 1: 요약 피드백 작성]\n").append(customInstruction).append("\n\n");
-            } else {
-                sb.append(getSummaryFeedbackInstruction()).append("\n\n");
-            }
-
-            sb.append(getScriptErrorInstruction()).append("\n\n");
-            sb.append(getExpectedQuestionsInstruction()).append("\n\n");
-        } else {
-            sb.append("\n[원본 대본]\n").append("없음(사용자가 대본을 제공하지 않음)\n\n");
-            sb.append("위 데이터를 바탕으로 다음 1가지 요청 사항을 수행해.\n");
-
-            if (customInstruction != null && !customInstruction.trim().isEmpty()) {
-                sb.append("[작업 1: 요약 피드백 작성]\n").append(customInstruction).append("\n\n");
-            } else {
-                sb.append(getSummaryFeedbackInstruction()).append("\n\n");
-            }
-        }
-
-        sb.append("결과는 반드시 아래의 단일 JSON 객체(Object) 형식으로만 응답해. 절대 ```json 이나 추가 설명을 덧붙이지 마.\n");
-        sb.append("{\n");
-        sb.append("  \"summaryFeedback\": \"요약 피드백 텍스트\"");
-
-        if (hasScript) {
-            sb.append(",\n");
-            sb.append("  \"scriptErrors\": [\n");
-            sb.append("    {\n");
-            sb.append("      \"errorType\": \"SPELLING\",\n");
-            sb.append("      \"sentence\": \"틀린 부분이 포함된 전체 원본 문장\",\n");
-            sb.append("      \"originalText\": \"틀린 부분\",\n");
-            sb.append("      \"correctedText\": \"교정된 텍스트\",\n");
-            sb.append("      \"reason\": \"교정 이유\"\n");
-            sb.append("    }\n");
-            sb.append("  ],\n");
-            sb.append("  \"expectedQuestions\": [\n");
-            sb.append("    {\n");
-            sb.append("      \"question\": \"예상 질문 1\",\n");
-            sb.append("      \"answer\": \"모범 답변 1\"\n");
-            sb.append("    }\n");
-            sb.append("  ]\n");
-        } else {
-            sb.append("\n");
-        }
-        sb.append("}");
-
-        return sb.toString();
+        String summary = customInstruction == null || customInstruction.isBlank()
+                ? getSummaryFeedbackInstruction() : customInstruction;
+        return promptBuilder.build(PresentationPromptInput.from(result, originalScript, presentation),
+                new PresentationPromptBuilder.Instructions(null, summary, getScriptErrorInstruction(),
+                        getExpectedQuestionsInstruction(), null), PresentationPromptBuilder.Task.ALL);
     }
 
 
@@ -286,59 +244,38 @@ public class GeminiService {
 
     // [기획자용] 단일 기능 테스트 로직 (실제 운영 로직의 데이터 구조를 똑같이 주입)
     public JsonNode testSinglePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript, String instruction, PromptTestType type) {
-        StringBuilder sb = new StringBuilder();
-        boolean hasScript = originalScript != null && !originalScript.trim().isEmpty();
+        return testSinglePrompt(result, originalScript, instruction, type, null);
+    }
 
-        // 실서버와 동일하게 STT 데이터 매핑
-        sb.append("다음 제공되는 사용자의 [발표 음성 데이터]와 [원본 대본]을 분석해줘.\n\n");
-        sb.append("[발표 음성 데이터]\n");
-        sb.append("- 총 발표 시간: ").append(result.getDurationSeconds() != null ? result.getDurationSeconds() : 0).append("초\n");
-        sb.append("- 발화 속도(SPM): ").append(result.getSpm()).append("자/분\n");
-        if (result.getAccuracyScore() != null) {
-            sb.append("- 발음 정확도 점수: ").append(String.format("%.1f", result.getAccuracyScore())).append("점 / 100점\n");
+    public JsonNode testSinglePrompt(AzureSpeechService.AzureAnalysisDto result, String originalScript,
+                                     String instruction, PromptTestType type, Presentation presentation) {
+        var input = PresentationPromptInput.from(result, originalScript, presentation);
+        var instructions = new PresentationPromptBuilder.Instructions(null,
+                type == PromptTestType.SUMMARY ? instruction : null,
+                type == PromptTestType.SCRIPT ? instruction : null,
+                type == PromptTestType.QUESTION ? instruction : null, null);
+        if (optimizedPromptEnabled) {
+            var defaults = promptPolicy.instructions(input, type == PromptTestType.SUMMARY ? instruction : null);
+            instructions = new PresentationPromptBuilder.Instructions(defaults.common(), defaults.summary(),
+                    type == PromptTestType.SCRIPT ? instruction : defaults.scriptErrors(),
+                    type == PromptTestType.QUESTION ? instruction : defaults.questions(), defaults.finalCheck());
         }
-
-        // 실서버와 동일하게 더듬음/추임새 횟수 계산
-        if (result.getSentenceDetails() != null) {
-            long stutterCount = 0;
-            long insertionCount = 0;
-            for (PresentationDTO.SentenceAnalysisDetail sentenceDetail : result.getSentenceDetails()) {
-                if (sentenceDetail.getWordDetails() != null) {
-                    stutterCount += sentenceDetail.getWordDetails().stream()
-                            .filter(w -> "Stutter".equals(w.getStatus())).count();
-                    insertionCount += sentenceDetail.getWordDetails().stream()
-                            .filter(w -> "Insertion".equals(w.getStatus())).count();
-                }
-            }
-            sb.append("- 더듬거나 반복한 횟수: ").append(stutterCount).append("회\n");
-            sb.append("- 불필요한 추임새 횟수: ").append(insertionCount).append("회\n");
+        String prompt = promptBuilder.build(input,
+                instructions, PresentationPromptBuilder.Task.valueOf(type.name()));
+        JsonNode response = executeRawGeminiRequest(prompt, input.hasScript(),
+                PresentationPromptBuilder.Task.valueOf(type.name()));
+        if (optimizedPromptEnabled && input.hasScript() && type == PromptTestType.QUESTION) {
+            feedbackReviewPromptBuilder.validateExpectedQuestions(response.path("expectedQuestions"));
         }
-
-        sb.append("\n[원본 대본]\n").append(hasScript ? originalScript : "없음(사용자가 대본을 제공하지 않음)\n\n");
-
-        // 기획자가 입력한 프롬프트 지시사항 주입
-        sb.append("위 데이터를 바탕으로 다음 1가지 요청 사항을 수행해.\n");
-        sb.append("[작업 지시사항]\n").append(instruction).append("\n\n");
-
-        // 해당 기능에 맞는 JSON 스키마만 강제
-        sb.append("결과는 반드시 아래의 단일 JSON 객체(Object) 형식으로만 응답해. 절대 ```json 이나 추가 설명을 덧붙이지 마.\n{\n");
-        if (type == PromptTestType.SUMMARY) {
-            sb.append("  \"summaryFeedback\": \"요약 피드백 텍스트\"\n");
-        } else if (type == PromptTestType.SCRIPT) {
-            sb.append("  \"scriptErrors\": [\n    {\n      \"errorType\": \"SPELLING\",\n      \"sentence\": \"틀린 부분이 포함된 전체 원본 문장\",\n      \"originalText\": \"틀린 부분\",\n      \"correctedText\": \"교정된 텍스트\",\n      \"reason\": \"교정 이유\"\n    }\n  ]\n");
-        } else if (type == PromptTestType.QUESTION) {
-            sb.append("  \"expectedQuestions\": [\n    {\n      \"question\": \"예상 질문 1\",\n      \"answer\": \"모범 답변 1\"\n    }\n  ]\n");
-        }
-        sb.append("}");
-
-        // 테스트 전용 메서드 호출
-        return executeRawGeminiRequest(sb.toString());
+        return response;
     }
 
     // [테스트 전용] 제미나이 API 호출 및 순수 JSON(JsonNode) 반환 로직
-    private JsonNode executeRawGeminiRequest(String prompt) {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
+    private JsonNode executeRawGeminiRequest(String prompt, boolean hasScript, PresentationPromptBuilder.Task task) {
+        return executeJsonRequest(GeminiRequestFactory.create(prompt, hasScript, task));
+    }
+
+    private JsonNode executeJsonRequest(Map<String, Object> requestBody) {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -349,11 +286,9 @@ public class GeminiService {
             String responseStr = restTemplate.postForObject(url, entity, String.class);
 
             JsonNode rootNode = objectMapper.readTree(responseStr);
-            String content = rootNode.path("candidates").get(0)
-                    .path("content").path("parts").get(0)
-                    .path("text").asText();
+            String content = extractResponseText(rootNode);
 
-            log.info("Gemini Single Test 응답: {}", content);
+            log.info("Gemini JSON 응답 수신 완료 (응답 길이: {}자)", content.length());
 
             // 제미나이 응답에서 순수 JSON 객체 부분만 추출
             int jsonStartIndex = content.indexOf("{");
@@ -367,8 +302,24 @@ public class GeminiService {
             return objectMapper.readTree(content);
 
         } catch (Exception e) {
-            log.error("단일 프롬프트 테스트 중 제미나이 연동 에러 발생: ", e);
-            throw new RuntimeException("AI 연동 실패 (Test)", e);
+            log.error("Gemini JSON 요청 처리 중 에러 발생: ", e);
+            throw new RuntimeException("AI JSON 연동 실패", e);
         }
+    }
+
+    private String extractResponseText(JsonNode response) {
+        JsonNode parts = response.path("candidates").path(0).path("content").path("parts");
+        StringBuilder text = new StringBuilder();
+        if (parts.isArray()) {
+            for (JsonNode part : parts) {
+                if (!part.path("thought").asBoolean(false) && part.path("text").isTextual()) {
+                    text.append(part.path("text").asText());
+                }
+            }
+        }
+        if (text.toString().isBlank()) {
+            throw new IllegalStateException("Gemini 응답에 최종 텍스트가 없습니다.");
+        }
+        return text.toString();
     }
 }
